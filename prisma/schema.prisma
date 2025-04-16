@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo para as barbearias (tenants)
+model Barbearia {
+  id              String    @id @default(cuid())
+  nome            String
+  email           String    @unique
+  telefone        String
+  endereco        String?
+  whatsapp        String
+  senha           String    // Armazenada com hash
+  logoUrl         String?
+  mensagemMarketing String?
+  
+  // Configurações de aparência
+  corPrimaria     String    @default("#9333ea")
+  corSecundaria   String    @default("#ec4899")
+  
+  // Relacionamentos
+  usuarios        Usuario[]
+  premios         Premio[]
+  jogos           Jogo[]
+  configuracoes   Configuracao?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Modelo para usuários (clientes e administradores)
+model Usuario {
+  id              String    @id @default(cuid())
+  nome            String
+  email           String
+  telefone        String
+  senha           String    // Armazenada com hash
+  role            Role      @default(CLIENTE)
+  
+  // Relacionamento com barbearia
+  barbeariaId     String
+  barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  
+  // Relacionamento com jogos
+  jogos           Jogo[]
+  
+  // Restrição de unicidade: email único por barbearia
+  @@unique([email, barbeariaId])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Enum para papéis de usuário
+enum Role {
+  ADMIN
+  CLIENTE
+}
+
+// Modelo para prêmios
+model Premio {
+  id              String    @id @default(cuid())
+  titulo          String
+  descricao       String
+  codigo          String
+  chance          Float     // Porcentagem (0-100)
+  ativo           Boolean   @default(true)
+  
+  // Relacionamento com barbearia
+  barbeariaId     String
+  barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  
+  // Relacionamento com jogos
+  jogos           Jogo[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Modelo para jogos/sorteios
+model Jogo {
+  id              String    @id @default(cuid())
+  
+  // Relacionamento com usuário
+  usuarioId       String
+  usuario         Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  
+  // Relacionamento com prêmio
+  premioId        String
+  premio          Premio    @relation(fields: [premioId], references: [id], onDelete: Cascade)
+  
+  // Relacionamento com barbearia
+  barbeariaId     String
+  barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  
+  resgatado       Boolean   @default(false)
+  dataResgate     DateTime?
+  dataExpiracao   DateTime
+  
+  createdAt       DateTime  @default(now())
+}
+
+// Modelo para configurações adicionais da barbearia
+model Configuracao {
+  id              String    @id @default(cuid())
+  
+  // Limite de jogos por mês por cliente
+  limiteJogosMes  Int       @default(1)
+  
+  // Dias de validade do prêmio
+  diasValidade    Int       @default(30)
+  
+  // Relacionamento com barbearia
+  barbeariaId     String    @unique
+  barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  
+  updatedAt       DateTime  @updatedAt
+}
