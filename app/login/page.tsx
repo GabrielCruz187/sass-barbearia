@@ -123,11 +123,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-500 to-pink-500 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-800 via-gray-600 to-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <div className="bg-purple-600 p-3 rounded-full">
+            <div className="bg-gray-800 p-3 rounded-full">
               <Scissors className="h-8 w-8 text-white" />
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   <Label htmlFor="client-password">Senha</Label>
                   <Input id="client-password" name="password" type="password" required />
                 </div>
-                <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={loading}>
+                <Button type="submit" className="w-full bg-gray-800 hover:bg-gray-700 text-white" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar como Cliente"}
                 </Button>
               </form>
@@ -177,7 +177,7 @@ export default function LoginPage() {
                   <Label htmlFor="admin-password">Senha</Label>
                   <Input id="admin-password" name="password" type="password" required />
                 </div>
-                <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={loading}>
+                <Button type="submit" className="w-full bg-gray-800 hover:bg-gray-700 text-white" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar como Administrador"}
                 </Button>
               </form>
@@ -187,7 +187,7 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-sm text-center text-muted-foreground">
             Não tem uma conta?{" "}
-            <Link href="/cadastro" className="text-purple-600 hover:underline">
+            <Link href="/cadastro" className="text-gray-800 hover:underline">
               Cadastre-se
             </Link>
           </div>

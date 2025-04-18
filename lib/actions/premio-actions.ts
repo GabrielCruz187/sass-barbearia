@@ -205,3 +205,29 @@ export async function excluirPremio(premioId: string) {
     return { error: "Erro ao excluir prêmio" }
   }
 }
+
+// Resetar prêmios existentes
+export async function resetarPremios() {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session || session.user.role !== "ADMIN") {
+      return { error: "Não autorizado" }
+    }
+
+    const barbeariaId = session.user.barbeariaId
+
+    // Excluir todos os prêmios da barbearia
+    await prisma.premio.deleteMany({
+      where: {
+        barbeariaId,
+      },
+    })
+
+    revalidatePath("/admin/premios")
+    return { success: true }
+  } catch (error) {
+    console.error("Erro ao resetar prêmios:", error)
+    return { error: "Erro ao resetar prêmios" }
+  }
+}

@@ -4,13 +4,14 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Download, Printer, Share2, Gift } from "lucide-react"
+import { Download, Printer, Share2, Gift, AlertTriangle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
 import { GameSlot } from "@/components/game-slot"
 import { PremioTicket } from "@/components/premio-ticket"
-import { realizarJogo } from "@/lib/actions/jogo-actions"
+import { realizarJogo, verificarJogoAtivo } from "@/lib/actions/jogo-actions"
 import { differenceInSeconds } from "date-fns"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Premio {
   titulo: string
@@ -41,29 +42,31 @@ export default function JogoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [temJogoAtivo, setTemJogoAtivo] = useState(false)
+  const [semPremios, setSemPremios] = useState(false)
+  const [verificado, setVerificado] = useState(false)
 
   useEffect(() => {
     // Verificar se o usuário já tem um jogo ativo
-    const verificarJogoAtivo = async () => {
+    const verificarJogo = async () => {
       try {
-        // Simular uma chamada para verificar jogo ativo
-        // Em produção, isso seria uma chamada real para a API
-        const result = await realizarJogo()
+        setLoading(true)
+        // Verificar se há um jogo ativo sem realizar um novo jogo
+        const result = await verificarJogoAtivo()
 
         if (result.jogoExistente) {
           // Se já existe um jogo ativo, armazenar os dados mas não mostrar o ticket automaticamente
           setJogoAtual({
             id: result.jogoExistente.id,
             premio: {
-              titulo: "Prêmio Ativo",
-              descricao: "Você já tem um prêmio ativo",
-              codigo: "ATIVO",
+              titulo: result.jogoExistente.premio.titulo,
+              descricao: result.jogoExistente.premio.descricao,
+              codigo: result.jogoExistente.premio.codigo,
             },
             barbearia: {
-              nome: "Barbearia",
-              whatsapp: "",
-              mensagemMarketing: "",
-              logoUrl: null,
+              nome: result.jogoExistente.barbearia.nome,
+              whatsapp: result.jogoExistente.barbearia.whatsapp,
+              mensagemMarketing: result.jogoExistente.barbearia.mensagemMarketing,
+              logoUrl: result.jogoExistente.barbearia.logoUrl,
             },
             dataExpiracao: result.jogoExistente.dataExpiracao,
           })
@@ -74,15 +77,18 @@ export default function JogoPage() {
           // Calcular countdown
           const segundosRestantes = differenceInSeconds(new Date(result.jogoExistente.dataExpiracao), new Date())
           setCountdown(Math.max(0, segundosRestantes))
+        } else if (result.semPremios) {
+          setSemPremios(true)
         }
       } catch (error) {
         console.error("Erro ao verificar jogo ativo:", error)
       } finally {
         setLoading(false)
+        setVerificado(true)
       }
     }
 
-    verificarJogoAtivo()
+    verificarJogo()
   }, [])
 
   useEffect(() => {
@@ -121,6 +127,12 @@ export default function JogoPage() {
 
         if (result.error) {
           setError(result.error)
+          setIsSpinning(false)
+          return
+        }
+
+        if (result.semPremios) {
+          setSemPremios(true)
           setIsSpinning(false)
           return
         }
@@ -217,7 +229,16 @@ export default function JogoPage() {
 
               {error && <div className="mb-4 p-3 bg-red-50 text-red-800 rounded-md text-sm w-full">{error}</div>}
 
-              <GameSlot isSpinning={isSpinning} />
+              {semPremios ? (
+                <Alert className="mb-6 bg-yellow-50 border-yellow-200">
+                  <AlertTriangle className="h-4 w-4 text-yellow-800" />
+                  <AlertDescription className="text-yellow-800">
+                    Esta barbearia ainda não cadastrou prêmios. Por favor, tente novamente mais tarde.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <GameSlot isSpinning={isSpinning} />
+              )}
 
               {temJogoAtivo ? (
                 <div className="mt-6 flex flex-col items-center">
@@ -234,8 +255,8 @@ export default function JogoPage() {
                     </Button>
                     <Button
                       onClick={handleSpin}
-                      disabled={isSpinning}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+                      disabled={isSpinning || semPremios}
+                      className="bg-gray-800 hover:bg-gray-700 text-white"
                       style={{ backgroundColor: "var(--cor-primaria)", color: "white" }}
                     >
                       {isSpinning ? "Girando..." : "Tentar Novamente"}
@@ -249,9 +270,9 @@ export default function JogoPage() {
                 <>
                   <Button
                     onClick={handleSpin}
-                    disabled={isSpinning}
+                    disabled={isSpinning || semPremios}
                     size="lg"
-                    className="mt-6 bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg px-8 py-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105"
+                    className="mt-6 bg-gray-800 hover:bg-gray-700 text-white text-lg px-8 py-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105"
                     style={{ backgroundColor: "var(--cor-primaria)", color: "white" }}
                   >
                     {isSpinning ? "Girando..." : "Receba seu Prêmio!"}
@@ -350,3 +371,4 @@ export default function JogoPage() {
     </AnimatePresence>
   )
 }
+

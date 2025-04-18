@@ -6,6 +6,84 @@ import prisma from "@/lib/prisma"
 import { addDays } from "date-fns"
 import { revalidatePath } from "next/cache"
 
+// Verificar se o usuário já tem um jogo ativo sem realizar um novo jogo
+export async function verificarJogoAtivo() {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return { error: "Não autorizado" }
+    }
+
+    const usuarioId = session.user.id
+    const barbeariaId = session.user.barbeariaId
+
+    // Verificar se o usuário já jogou no mês atual
+    const primeiroDiaMes = new Date()
+    primeiroDiaMes.setDate(1)
+    primeiroDiaMes.setHours(0, 0, 0, 0)
+
+    const jogoNoMesAtual = await prisma.jogo.findFirst({
+      where: {
+        usuarioId,
+        barbeariaId,
+        createdAt: {
+          gte: primeiroDiaMes,
+        },
+      },
+      include: {
+        premio: true,
+        barbearia: {
+          select: {
+            nome: true,
+            whatsapp: true,
+            mensagemMarketing: true,
+            logoUrl: true,
+          },
+        },
+      },
+    })
+
+    if (jogoNoMesAtual) {
+      console.log("Usuário já jogou neste mês:", jogoNoMesAtual.id)
+      return {
+        jogoExistente: {
+          id: jogoNoMesAtual.id,
+          dataExpiracao: jogoNoMesAtual.dataExpiracao,
+          premio: {
+            titulo: jogoNoMesAtual.premio.titulo,
+            descricao: jogoNoMesAtual.premio.descricao,
+            codigo: jogoNoMesAtual.premio.codigo,
+          },
+          barbearia: {
+            nome: jogoNoMesAtual.barbearia.nome,
+            whatsapp: jogoNoMesAtual.barbearia.whatsapp,
+            mensagemMarketing: jogoNoMesAtual.barbearia.mensagemMarketing,
+            logoUrl: jogoNoMesAtual.barbearia.logoUrl,
+          },
+        },
+      }
+    }
+
+    // Verificar se há prêmios disponíveis
+    const premios = await prisma.premio.findMany({
+      where: {
+        barbeariaId,
+        ativo: true,
+      },
+    })
+
+    if (premios.length === 0) {
+      return { semPremios: true }
+    }
+
+    return { podeJogar: true }
+  } catch (error) {
+    console.error("Erro ao verificar jogo ativo:", error)
+    return { error: "Erro ao verificar jogo ativo" }
+  }
+}
+
 // Realizar um jogo/sorteio
 export async function realizarJogo() {
   try {
@@ -84,7 +162,7 @@ export async function realizarJogo() {
     })
 
     if (premios.length === 0) {
-      return { error: "Não há prêmios disponíveis" }
+      return { semPremios: true, error: "Não há prêmios disponíveis para esta barbearia" }
     }
 
     // Realizar sorteio baseado nas chances

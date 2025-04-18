@@ -36,6 +36,9 @@ export async function cadastrarBarbearia(formData: FormData) {
         whatsapp,
         senha: senhaHash,
         endereco,
+        // Usar cores em escala de cinza
+        corPrimaria: "#333333",
+        corSecundaria: "#666666",
         configuracoes: {
           create: {
             limiteJogosMes: 1,
@@ -45,39 +48,7 @@ export async function cadastrarBarbearia(formData: FormData) {
       },
     })
 
-    // Criar prêmios padrão para a barbearia
-    await prisma.premio.createMany({
-      data: [
-        {
-          titulo: "20% de desconto",
-          descricao: "Desconto no corte + barba",
-          codigo: "DESC20CB",
-          chance: 40,
-          barbeariaId: novaBarbearia.id,
-        },
-        {
-          titulo: "30% em produtos",
-          descricao: "Desconto em produtos de barba",
-          codigo: "DESC30PB",
-          chance: 30,
-          barbeariaId: novaBarbearia.id,
-        },
-        {
-          titulo: "20% em pomada",
-          descricao: "Desconto em pomada",
-          codigo: "DESC20POM",
-          chance: 25,
-          barbeariaId: novaBarbearia.id,
-        },
-        {
-          titulo: "🏆 Corte grátis",
-          descricao: "Um corte de cabelo grátis",
-          codigo: "CORTEGRATIS",
-          chance: 5,
-          barbeariaId: novaBarbearia.id,
-        },
-      ],
-    })
+    // Não criar prêmios padrão - deixar o dono da barbearia adicionar os próprios prêmios
 
     // Em vez de redirecionar diretamente, retornamos sucesso
     return { success: true, redirectTo: "/login?cadastro=sucesso" }
@@ -94,78 +65,19 @@ export async function cadastrarCliente(formData: FormData) {
     const email = formData.get("email") as string
     const telefone = formData.get("telefone") as string
     const senha = formData.get("senha") as string
-    let barbeariaId = formData.get("barbeariaId") as string
+    const barbeariaId = formData.get("barbeariaId") as string
 
     console.log("Dados do cliente:", { nome, email, telefone, barbeariaId })
 
-    // Verificar se existe uma barbearia para associar o cliente
-    // Se não for fornecido um ID válido, buscar a primeira barbearia disponível
-    if (!barbeariaId || barbeariaId === "barbearia-demo-id") {
-      const primeiraBarbearia = await prisma.barbearia.findFirst({
-        orderBy: {
-          createdAt: "desc",
-        },
-      })
+    // Verificar se a barbearia existe
+    const barbearia = await prisma.barbearia.findUnique({
+      where: {
+        id: barbeariaId,
+      },
+    })
 
-      if (primeiraBarbearia) {
-        barbeariaId = primeiraBarbearia.id
-        console.log("Usando barbearia existente:", barbeariaId)
-      } else {
-        // Se não existir nenhuma barbearia, criar uma barbearia de demonstração
-        console.log("Criando barbearia de demonstração")
-        const demoBarbearia = await prisma.barbearia.create({
-          data: {
-            nome: "Barbearia Demonstração",
-            email: "demo@barbearia.com",
-            telefone: "11999999999",
-            whatsapp: "11999999999",
-            senha: await hash("senha123", 10),
-            configuracoes: {
-              create: {
-                limiteJogosMes: 1,
-                diasValidade: 30,
-              },
-            },
-          },
-        })
-
-        barbeariaId = demoBarbearia.id
-        console.log("Barbearia de demonstração criada:", barbeariaId)
-
-        // Criar prêmios padrão para a barbearia de demonstração
-        await prisma.premio.createMany({
-          data: [
-            {
-              titulo: "20% de desconto",
-              descricao: "Desconto no corte + barba",
-              codigo: "DESC20CB",
-              chance: 40,
-              barbeariaId: demoBarbearia.id,
-            },
-            {
-              titulo: "30% em produtos",
-              descricao: "Desconto em produtos de barba",
-              codigo: "DESC30PB",
-              chance: 30,
-              barbeariaId: demoBarbearia.id,
-            },
-            {
-              titulo: "20% em pomada",
-              descricao: "Desconto em pomada",
-              codigo: "DESC20POM",
-              chance: 25,
-              barbeariaId: demoBarbearia.id,
-            },
-            {
-              titulo: "🏆 Corte grátis",
-              descricao: "Um corte de cabelo grátis",
-              codigo: "CORTEGRATIS",
-              chance: 5,
-              barbeariaId: demoBarbearia.id,
-            },
-          ],
-        })
-      }
+    if (!barbearia) {
+      return { error: "Barbearia não encontrada. Por favor, selecione uma barbearia válida." }
     }
 
     // Verificar se o email já está em uso para esta barbearia
