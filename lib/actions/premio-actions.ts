@@ -73,7 +73,7 @@ export async function adicionarPremio(formData: FormData) {
     return { success: true }
   } catch (error) {
     console.error("Erro ao adicionar prêmio:", error)
-    return { error: "Erro ao adicionar prêmio" }
+    return { error: `Erro ao adicionar prêmio: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
 

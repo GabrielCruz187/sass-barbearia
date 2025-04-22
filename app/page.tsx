@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import "@/app/styles/globals.css"
+import "@/components/color-provider"
 
 export default function Home() {
   return (

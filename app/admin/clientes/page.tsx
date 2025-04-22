@@ -136,14 +136,24 @@ export default function ClientesPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Clientes</h1>
+      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--cor-primaria)" }}>
+        Clientes
+      </h1>
 
       <div className="mb-6">
         <div className="flex gap-4 mb-4">
-          <Button variant={activeTab === "clientes" ? "default" : "outline"} onClick={() => setActiveTab("clientes")}>
+          <Button
+            variant={activeTab === "clientes" ? "default" : "outline"}
+            onClick={() => setActiveTab("clientes")}
+            style={activeTab === "clientes" ? { backgroundColor: "var(--cor-primaria)" } : {}}
+          >
             Lista de Clientes
           </Button>
-          <Button variant={activeTab === "jogos" ? "default" : "outline"} onClick={() => setActiveTab("jogos")}>
+          <Button
+            variant={activeTab === "jogos" ? "default" : "outline"}
+            onClick={() => setActiveTab("jogos")}
+            style={activeTab === "jogos" ? { backgroundColor: "var(--cor-primaria)" } : {}}
+          >
             Histórico de Jogos
           </Button>
         </div>

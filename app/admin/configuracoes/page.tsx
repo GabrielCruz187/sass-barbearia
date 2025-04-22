@@ -108,7 +108,9 @@ export default function ConfiguracoesPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Configurações</h1>
+      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--cor-primaria)" }}>
+        Configurações
+      </h1>
 
       <form onSubmit={handleSubmit}>
         <div className="grid gap-6 mb-6">
@@ -256,7 +258,12 @@ export default function ConfiguracoesPage() {
         </div>
 
         <div className="flex justify-end">
-          <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={saving}>
+          <Button
+            type="submit"
+            className="bg-purple-600 hover:bg-purple-700"
+            style={{ backgroundColor: "var(--cor-primaria)" }}
+            disabled={saving}
+          >
             {saving ? "Salvando..." : "Salvar Alterações"}
           </Button>
         </div>

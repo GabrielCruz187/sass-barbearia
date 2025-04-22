@@ -25,8 +25,14 @@ export async function middleware(request: NextRequest) {
   // Rotas públicas que não precisam de autenticação
   const publicRoutes = ["/", "/login", "/cadastro"]
   if (publicRoutes.includes(pathname)) {
-    // Se estiver autenticado e tentar acessar rota pública, redirecionar
-    if (token) {
+    // Permitir acesso à página inicial mesmo para usuários autenticados
+    if (pathname === "/" && token) {
+      console.log("Usuário autenticado acessando a página inicial")
+      return NextResponse.next()
+    }
+
+    // Para login e cadastro, redirecionar usuários autenticados
+    if (token && pathname !== "/") {
       console.log("Usuário autenticado tentando acessar rota pública")
       if (token.role === "ADMIN") {
         console.log("Redirecionando admin para dashboard")

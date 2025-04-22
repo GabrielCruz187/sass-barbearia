@@ -74,7 +74,9 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--cor-primaria)" }}>
+        Dashboard
+      </h1>
 
       {error && <div className="bg-red-50 text-red-800 p-4 rounded-md mb-6">{error}</div>}
 
@@ -141,7 +143,7 @@ export default function AdminDashboard() {
                     <XAxis dataKey="data" />
                     <YAxis allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="quantidade" fill="#8884d8" name="Jogos" />
+                    <Bar dataKey="quantidade" fill="var(--cor-primaria)" name="Jogos" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

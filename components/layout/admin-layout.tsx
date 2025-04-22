@@ -116,6 +116,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           key={item.href}
           variant="ghost"
           className={`w-full justify-start ${pathname === item.href ? "bg-white/10" : ""}`}
+          style={{ color: "white" }}
           asChild
         >
           <Link href={item.href} onClick={() => setIsOpen(false)}>
@@ -158,7 +159,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   )
 
   const renderMobileHeader = () => (
-    <div className="md:hidden bg-purple-900 text-white p-4 fixed top-0 left-0 right-0 z-10 flex items-center justify-between">
+    <div
+      className="md:hidden bg-purple-900 text-white p-4 fixed top-0 left-0 right-0 z-10 flex items-center justify-between"
+      style={{ background: `var(--cor-primaria)` }}
+    >
       <div className="flex items-center gap-2">
         {loading ? (
           <Skeleton className="h-6 w-6 rounded-full bg-white/20" />

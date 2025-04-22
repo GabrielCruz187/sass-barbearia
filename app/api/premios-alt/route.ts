@@ -3,19 +3,21 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-// Obter prêmios da barbearia
+// Rota alternativa para obter prêmios da barbearia
 export async function GET(req: Request) {
   try {
+    console.log("API /premios-alt - Iniciando processamento da requisição")
+
     const session = await getServerSession(authOptions)
-    console.log("API /premios - Session:", session ? "Autenticado" : "Não autenticado")
+    console.log("API /premios-alt - Session:", session ? "Autenticado" : "Não autenticado")
 
     if (!session) {
-      console.log("API /premios - Erro: Não autorizado (sem sessão)")
+      console.log("API /premios-alt - Erro: Não autorizado (sem sessão)")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const barbeariaId = session.user.barbeariaId
-    console.log("API /premios - BarbeariaId:", barbeariaId)
+    console.log("API /premios-alt - BarbeariaId:", barbeariaId)
 
     const premios = await prisma.premio.findMany({
       where: {
@@ -26,8 +28,7 @@ export async function GET(req: Request) {
       },
     })
 
-    console.log(`API /premios - Prêmios encontrados: ${premios.length}`)
-    console.log("API /premios - Prêmios:", JSON.stringify(premios))
+    console.log(`API /premios-alt - Prêmios encontrados: ${premios.length}`)
 
     // Garantir que estamos retornando JSON válido
     return new NextResponse(JSON.stringify(premios), {
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
       },
     })
   } catch (error) {
-    console.error("API /premios - Erro ao obter prêmios:", error)
+    console.error("API /premios-alt - Erro ao obter prêmios:", error)
 
     // Garantir que o erro também retorne JSON válido
     return new NextResponse(
@@ -58,7 +59,10 @@ export async function GET(req: Request) {
 // Adicionar novo prêmio
 export async function POST(req: Request) {
   try {
+    console.log("API /premios-alt - Iniciando processamento do POST")
+
     const session = await getServerSession(authOptions)
+    console.log("API /premios-alt - Session POST:", session ? "Autenticado" : "Não autenticado")
 
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
@@ -67,7 +71,7 @@ export async function POST(req: Request) {
     const { titulo, descricao, chance, codigo } = await req.json()
     const barbeariaId = session.user.barbeariaId
 
-    console.log("Adicionando prêmio via API:", { titulo, descricao, codigo, chance, barbeariaId })
+    console.log("API /premios-alt - Adicionando prêmio:", { titulo, descricao, codigo, chance, barbeariaId })
 
     // Verificar se a soma das chances não ultrapassa 100%
     const premiosExistentes = await prisma.premio.findMany({
@@ -81,9 +85,9 @@ export async function POST(req: Request) {
     })
 
     const somaChancesExistentes = premiosExistentes.reduce((soma, premio) => soma + premio.chance, 0)
-    console.log("Soma das chances existentes:", somaChancesExistentes)
-    console.log("Nova chance:", chance)
-    console.log("Soma total:", somaChancesExistentes + chance)
+    console.log("API /premios-alt - Soma das chances existentes:", somaChancesExistentes)
+    console.log("API /premios-alt - Nova chance:", chance)
+    console.log("API /premios-alt - Soma total:", somaChancesExistentes + chance)
 
     if (somaChancesExistentes + chance > 100) {
       return NextResponse.json(
@@ -107,8 +111,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(novoPremio, { status: 201 })
   } catch (error) {
-    console.error("Erro ao adicionar prêmio:", error)
+    console.error("API /premios-alt - Erro ao adicionar prêmio:", error)
     return NextResponse.json({ error: "Erro ao adicionar prêmio" }, { status: 500 })
   }
 }
-
