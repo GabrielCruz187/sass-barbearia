@@ -90,7 +90,7 @@ export async function criarBarbeariaTeste() {
         endereco: "Rua de Teste, 123",
         corPrimaria: "#333333",
         corSecundaria: "#666666",
-        configuracoes: {
+        configuracao: {
           create: {
             limiteJogosMes: 1,
             diasValidade: 30,

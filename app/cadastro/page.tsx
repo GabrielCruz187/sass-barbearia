@@ -271,8 +271,7 @@ export default function CadastroPage() {
                   <Alert className="bg-blue-50 border-blue-200">
                     <CreditCard className="h-4 w-4 text-blue-800" />
                     <AlertDescription className="text-blue-800">
-                      Após o cadastro, você será redirecionado para a página de pagamento. A assinatura custa
-                      R$49,90/mês.
+                      Após o cadastro, você será redirecionado para a página de pagamento. 
                     </AlertDescription>
                   </Alert>
                 )}

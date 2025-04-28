@@ -39,7 +39,7 @@ export async function cadastrarBarbearia(formData: FormData) {
         endereco,
         corPrimaria: "#333333",
         corSecundaria: "#666666",
-        configuracoes: {
+        configuracao: {
           create: {
             limiteJogosMes: 1,
             diasValidade: 30,
@@ -160,3 +160,4 @@ export async function cadastrarCliente(formData: FormData) {
     return { error: `Erro ao cadastrar usuário: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
+

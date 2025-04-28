@@ -125,7 +125,7 @@ model Jogo {
   dataExpiracao   DateTime
   
   createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  updatedAt       DateTime?  @updatedAt
 }
 
 // Modelo para configurações adicionais da barbearia

@@ -20,7 +20,7 @@ export async function GET(req: Request) {
         id: barbeariaId,
       },
       include: {
-        configuracoes: true,
+        configuracao: true,
       },
     })
 
@@ -38,8 +38,8 @@ export async function GET(req: Request) {
       mensagemMarketing: barbearia.mensagemMarketing,
       corPrimaria: barbearia.corPrimaria,
       corSecundaria: barbearia.corSecundaria,
-      limiteJogosMes: barbearia.configuracoes?.limiteJogosMes || 1,
-      diasValidade: barbearia.configuracoes?.diasValidade || 30,
+      limiteJogosMes: barbearia.configuracao?.limiteJogosMes || 1,
+      diasValidade: barbearia.configuracao?.diasValidade || 30,
     })
   } catch (error) {
     console.error("Erro ao obter configurações:", error)

@@ -5,9 +5,12 @@ export function middleware(request: NextRequest) {
   // Registrar todas as navegações para depuração
   console.log("Middleware - Navegação para:", request.nextUrl.pathname)
 
-  // Verificar se é uma navegação para o checkout
-  if (request.nextUrl.pathname === "/checkout") {
-    console.log("Middleware - Parâmetros de checkout:", request.nextUrl.search)
+  // Verificar se é uma navegação para o checkout ou assinatura
+  if (request.nextUrl.pathname === "/checkout" || request.nextUrl.pathname === "/admin/assinatura") {
+    console.log("Middleware - Parâmetros de checkout/assinatura:", request.nextUrl.search)
+
+    // Não interferir com a navegação para estas rotas
+    return NextResponse.next()
   }
 
   return NextResponse.next()

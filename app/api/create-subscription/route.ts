@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
   try {
-    const { barbeariaId } = await req.json()
+    const { barbeariaId, plan } = await req.json()
 
     if (!barbeariaId) {
       return NextResponse.json({ error: "ID da barbearia não fornecido" }, { status: 400 })
@@ -18,7 +18,6 @@ export async function POST(req: Request) {
     // Verificar se a barbearia existe
     const barbearia = await prisma.barbearia.findUnique({
       where: { id: barbeariaId },
-      include: { assinatura: true },
     })
 
     if (!barbearia) {
@@ -26,12 +25,20 @@ export async function POST(req: Request) {
     }
 
     // Verificar se já existe uma assinatura ativa
-    if (barbearia.assinatura?.status === "active") {
+    const assinaturaExistente = await prisma.assinatura.findUnique({
+      where: { barbeariaId },
+    })
+
+    if (assinaturaExistente?.status === "active") {
       return NextResponse.json({ error: "Barbearia já possui uma assinatura ativa" }, { status: 400 })
     }
 
+    // Definir o valor com base no plano
+    const amount = plan === "monthly" ? 19900 : 180000 // R$199,00 ou R$1.800,00 em centavos
+    const planName = plan === "monthly" ? "mensal" : "anual"
+
     // Criar ou recuperar um cliente no Stripe
-    let stripeCustomerId = barbearia.assinatura?.stripeCustomerId
+    let stripeCustomerId = assinaturaExistente?.stripeCustomerId
 
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
@@ -47,12 +54,13 @@ export async function POST(req: Request) {
 
     // Criar uma intenção de pagamento para a assinatura
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 4990, // R$49,90 em centavos
+      amount,
       currency: "brl",
       customer: stripeCustomerId,
       metadata: {
         barbeariaId: barbearia.id,
         type: "subscription_setup",
+        plan: planName,
       },
       automatic_payment_methods: {
         enabled: true,
@@ -66,15 +74,19 @@ export async function POST(req: Request) {
         stripeCustomerId,
         stripePaymentIntentId: paymentIntent.id,
         status: "pending",
+        plano: planName,
       },
       create: {
         barbeariaId,
         stripeCustomerId,
         stripePaymentIntentId: paymentIntent.id,
         status: "pending",
-        plano: "premium",
+        plano: planName,
         dataInicio: new Date(),
-        dataProximaCobranca: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias a partir de agora
+        dataProximaCobranca:
+          plan === "monthly"
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 dias para mensal
+            : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 365 dias para anual
       },
     })
 

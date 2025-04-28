@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         whatsapp,
         senha: senhaHash,
         endereco,
-        configuracoes: {
+        configuracao: {
           create: {
             limiteJogosMes: 1,
             diasValidade: 30,

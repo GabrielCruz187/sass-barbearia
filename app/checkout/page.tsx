@@ -1,16 +1,19 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, CheckCircle2, CreditCard } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { loadStripe } from "@stripe/stripe-js"
+import { Elements } from "@stripe/react-stripe-js"
+import { StripeCheckoutForm } from "@/components/stripe-checkout-form"
+
+// Carregue o Stripe fora do componente para evitar recriações
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -19,13 +22,29 @@ export default function CheckoutPage() {
   const barbeariaId = searchParams.get("barbeariaId")
   const success = searchParams.get("success") === "true"
   const canceled = searchParams.get("canceled") === "true"
+  const [plan, setPlan] = useState<"monthly" | "annual">("monthly")
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [cardNumber, setCardNumber] = useState("")
-  const [cardName, setCardName] = useState("")
-  const [cardExpiry, setCardExpiry] = useState("")
-  const [cardCvc, setCardCvc] = useState("")
+  const [clientSecret, setClientSecret] = useState("")
+  const [freeSlotAvailable, setFreeSlotAvailable] = useState(false)
+  const [isCreatingSubscription, setIsCreatingSubscription] = useState(false)
+
+  useEffect(() => {
+    // Verificar se ainda há vagas gratuitas disponíveis
+    const checkFreeSlots = async () => {
+      try {
+        const response = await fetch("/api/check-free-slots")
+        const data = await response.json()
+        setFreeSlotAvailable(data.freeSlotAvailable)
+      } catch (error) {
+        console.error("Erro ao verificar vagas gratuitas:", error)
+        setFreeSlotAvailable(false)
+      }
+    }
+
+    checkFreeSlots()
+  }, [])
 
   useEffect(() => {
     // Log para depuração
@@ -34,48 +53,97 @@ export default function CheckoutPage() {
     console.log("Checkout page - canceled:", canceled)
 
     // Se não tiver barbeariaId, redirecionar para a página de cadastro
+    // Mas apenas se não estiver em um estado de sucesso ou cancelamento
     if (!barbeariaId && !success && !canceled) {
-      console.log("Redirecionando para /cadastro por falta de barbeariaId")
-      router.push("/cadastro")
+      // Verificar se o usuário está autenticado
+      const checkSession = async () => {
+        try {
+          // Tentar obter a sessão do usuário
+          const response = await fetch("/api/auth/session")
+          const session = await response.json()
+
+          // Se o usuário estiver autenticado e tiver um barbeariaId, não redirecionar
+          if (session && session.user && session.user.barbeariaId) {
+            console.log("Usuário autenticado, não redirecionando")
+            return
+          }
+
+          console.log("Redirecionando para /cadastro por falta de barbeariaId")
+          router.push("/cadastro")
+        } catch (error) {
+          console.error("Erro ao verificar sessão:", error)
+          router.push("/cadastro")
+        }
+      }
+
+      checkSession()
     }
   }, [barbeariaId, router, success, canceled])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const createSubscription = async () => {
+    if (!barbeariaId) return
+
+    setIsCreatingSubscription(true)
+    setError("")
+
+    try {
+      const response = await fetch("/api/create-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          barbeariaId,
+          plan,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.error) {
+        setError(data.error)
+        return
+      }
+
+      setClientSecret(data.clientSecret)
+    } catch (error) {
+      console.error("Erro ao criar assinatura:", error)
+      setError("Ocorreu um erro ao criar a assinatura. Por favor, tente novamente.")
+    } finally {
+      setIsCreatingSubscription(false)
+    }
+  }
+
+  const handleActivateFree = async () => {
+    if (!barbeariaId) return
+
     setLoading(true)
     setError("")
 
-    // Validação básica
-    if (!cardNumber || !cardName || !cardExpiry || !cardCvc) {
-      setError("Por favor, preencha todos os campos do cartão")
-      setLoading(false)
-      return
-    }
-
     try {
-      // Simulação de processamento de pagamento
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const response = await fetch("/api/activate-free-plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          barbeariaId,
+        }),
+      })
 
-      // Armazenar no localStorage que esta barbearia "pagou"
-      if (typeof window !== "undefined" && barbeariaId) {
-        const paidBarbearias = JSON.parse(localStorage.getItem("paidBarbearias") || "[]")
-        if (!paidBarbearias.includes(barbeariaId)) {
-          paidBarbearias.push(barbeariaId)
-          localStorage.setItem("paidBarbearias", JSON.stringify(paidBarbearias))
-        }
+      const data = await response.json()
+
+      if (data.error) {
+        setError(data.error)
+        setLoading(false)
+        return
       }
 
       // Redirecionar para a página de sucesso
       router.push(`/checkout?success=true`)
     } catch (error) {
-      console.error("Erro ao processar pagamento:", error)
-      setError("Ocorreu um erro ao processar o pagamento. Por favor, tente novamente.")
-      toast({
-        title: "Erro no pagamento",
-        description: "Ocorreu um erro ao processar o pagamento. Por favor, tente novamente.",
-        variant: "destructive",
-      })
-    } finally {
+      console.error("Erro ao ativar plano gratuito:", error)
+      setError("Ocorreu um erro ao ativar o plano gratuito. Por favor, tente novamente.")
       setLoading(false)
     }
   }
@@ -143,82 +211,131 @@ export default function CheckoutPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center">Assinatura Premium</CardTitle>
+          <CardTitle className="text-center">Escolha seu Plano</CardTitle>
           <CardDescription className="text-center">Complete o pagamento para ativar sua barbearia</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-            <div className="flex justify-between mb-2">
-              <span>Plano Premium</span>
-              <span className="font-semibold">R$49,90/mês</span>
-            </div>
-            <div className="text-sm text-gray-500">Acesso completo a todas as funcionalidades</div>
-          </div>
-
-          {error && (
-            <Alert className="mb-4 bg-red-50 border-red-200">
-              <AlertTriangle className="h-4 w-4 text-red-800" />
-              <AlertDescription className="text-red-800">{error}</AlertDescription>
+          {freeSlotAvailable && (
+            <Alert className="mb-6 bg-blue-50 border-blue-200">
+              <Sparkles className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <span className="font-bold">Parabéns!</span> Você é um dos primeiros a se cadastrar e pode ativar o
+                plano gratuitamente!
+              </AlertDescription>
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="card-number">Número do Cartão</Label>
-              <div className="flex items-center border rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                <CreditCard className="ml-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="card-number"
-                  placeholder="1234 5678 9012 3456"
-                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                />
+          {!clientSecret && (
+            <>
+              <Tabs
+                defaultValue="monthly"
+                value={plan}
+                onValueChange={(value) => setPlan(value as "monthly" | "annual")}
+                className="mb-6"
+              >
+                <TabsList className="grid grid-cols-2 w-full">
+                  <TabsTrigger value="monthly">Mensal</TabsTrigger>
+                  <TabsTrigger value="annual">Anual</TabsTrigger>
+                </TabsList>
+                <TabsContent value="monthly" className="mt-4">
+                  <div className="p-4 bg-white border rounded-lg shadow-sm">
+                    <div className="flex justify-between mb-2">
+                      <span className="font-medium">Plano Mensal</span>
+                      <span className="font-bold">R$199,00/mês</span>
+                    </div>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Acesso a todas as funcionalidades
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Número ilimitado de clientes
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Suporte prioritário
+                      </li>
+                    </ul>
+                  </div>
+                </TabsContent>
+                <TabsContent value="annual" className="mt-4">
+                  <div className="p-4 bg-white border rounded-lg shadow-sm">
+                    <div className="flex justify-between mb-2">
+                      <span className="font-medium">Plano Anual</span>
+                      <div className="text-right">
+                        <span className="font-bold">R$150,00/mês</span>
+                        <div className="text-xs text-green-600 font-medium">Economia de 25%</div>
+                      </div>
+                    </div>
+                    <div className="text-sm mb-2">Total: R$1.800,00/ano</div>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Acesso a todas as funcionalidades
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Número ilimitado de clientes
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Suporte prioritário
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                        Preço fixo garantido por 12 meses
+                      </li>
+                    </ul>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {error && (
+                <Alert className="mb-4 bg-red-50 border-red-200">
+                  <AlertTriangle className="h-4 w-4 text-red-800" />
+                  <AlertDescription className="text-red-800">{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex gap-4">
+                <Button variant="outline" onClick={handleCancel} className="flex-1">
+                  Cancelar
+                </Button>
+                {freeSlotAvailable ? (
+                  <Button
+                    onClick={handleActivateFree}
+                    className="flex-1"
+                    disabled={loading}
+                    style={{ backgroundColor: "var(--cor-primaria)" }}
+                  >
+                    {loading ? "Ativando..." : "Ativar Gratuitamente"}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={createSubscription}
+                    className="flex-1"
+                    disabled={isCreatingSubscription}
+                    style={{ backgroundColor: "var(--cor-primaria)" }}
+                  >
+                    {isCreatingSubscription ? "Processando..." : "Continuar para Pagamento"}
+                  </Button>
+                )}
               </div>
-            </div>
+            </>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="card-name">Nome no Cartão</Label>
-              <Input
-                id="card-name"
-                placeholder="NOME COMO ESTÁ NO CARTÃO"
-                value={cardName}
-                onChange={(e) => setCardName(e.target.value)}
-              />
+          {clientSecret && (
+            <div className="mt-4">
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <StripeCheckoutForm barbeariaId={barbeariaId || ""} plan={plan} />
+              </Elements>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="card-expiry">Validade</Label>
-                <Input
-                  id="card-expiry"
-                  placeholder="MM/AA"
-                  value={cardExpiry}
-                  onChange={(e) => setCardExpiry(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="card-cvc">CVC</Label>
-                <Input id="card-cvc" placeholder="123" value={cardCvc} onChange={(e) => setCardCvc(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="pt-4 flex gap-4">
-              <Button variant="outline" type="button" className="flex-1" onClick={handleCancel} disabled={loading}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? "Processando..." : "Pagar R$49,90"}
-              </Button>
-            </div>
-          </form>
-
-          <div className="mt-6 text-xs text-center text-gray-500">
-            <p>Este é um ambiente de demonstração. Nenhum cartão real será cobrado.</p>
-            <p className="mt-1">Você pode usar qualquer número de cartão para testar.</p>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 }
+
+

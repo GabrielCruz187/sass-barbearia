@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
   try {
-    const { barbeariaId } = await req.json()
+    const { barbeariaId, plan } = await req.json()
 
     if (!barbeariaId) {
       return NextResponse.json({ error: "ID da barbearia não fornecido" }, { status: 400 })
@@ -29,17 +29,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Assinatura não encontrada" }, { status: 404 })
     }
 
+    // Calcular a próxima data de cobrança com base no plano
+    const dataProximaCobranca =
+      plan === "monthly"
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 dias para mensal
+        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 365 dias para anual
+
     // Atualizar o status da assinatura
     await prisma.assinatura.update({
       where: { id: barbearia.assinatura.id },
       data: {
         status: "active",
+        plano: plan === "monthly" ? "mensal" : "anual",
         dataInicio: new Date(),
-        dataProximaCobranca: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias a partir de agora
+        dataProximaCobranca,
+        ultimoPagamento: new Date(),
       },
     })
-
-    // Não atualizamos o campo 'ativo' da barbearia pois ele não existe no schema
 
     return NextResponse.json({ success: true })
   } catch (error) {

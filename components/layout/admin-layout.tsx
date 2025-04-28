@@ -87,7 +87,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/premios", label: "Prêmios", icon: Gift },
     { href: "/admin/clientes", label: "Clientes", icon: Users },
     { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
-    { href: "/checkout", label: "Assinatura", icon: CreditCard },
+    { href: "/admin/assinatura", label: "Assinatura", icon: CreditCard },
   ]
 
   const handleSignOut = async () => {
