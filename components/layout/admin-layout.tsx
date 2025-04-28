@@ -6,10 +6,11 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { Users, Gift, Settings, BarChart3, LogOut, Scissors, Menu, X } from "lucide-react"
+import { Users, Gift, Settings, BarChart3, LogOut, Scissors, Menu, X, CreditCard, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -21,10 +22,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isPaid, setIsPaid] = useState(false)
   const [barbeariaInfo, setBarbeariaInfo] = useState({
     nome: "",
     logoUrl: "",
   })
+
+  useEffect(() => {
+    // Verificar se a barbearia "pagou" usando localStorage
+    if (session?.user?.barbeariaId) {
+      const paidBarbearias = JSON.parse(localStorage.getItem("paidBarbearias") || "[]")
+      setIsPaid(paidBarbearias.includes(session.user.barbeariaId))
+    }
+  }, [session])
 
   useEffect(() => {
     console.log("AdminLayout - session:", session)
@@ -77,6 +87,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/premios", label: "Prêmios", icon: Gift },
     { href: "/admin/clientes", label: "Clientes", icon: Users },
     { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
+    { href: "/checkout", label: "Assinatura", icon: CreditCard },
   ]
 
   const handleSignOut = async () => {
@@ -129,7 +140,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   )
 
   const renderSidebar = () => (
-    <div className="w-64 bg-gray-900 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
+    <div className="w-64 bg-purple-900 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
       <div className="flex items-center gap-2 mb-8">
         {loading ? (
           <Skeleton className="h-6 w-6 rounded-full bg-white/20" />
@@ -147,6 +158,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </h1>
       </div>
 
+      {!isPaid && (
+        <Alert className="mb-4 bg-yellow-900/30 border-yellow-800">
+          <AlertTriangle className="h-4 w-4 text-yellow-400" />
+          <AlertDescription className="text-yellow-100 text-xs">
+            Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.
+            <Link href="/checkout" className="block mt-1 text-yellow-400 hover:underline">
+              Ativar assinatura
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {renderNavItems()}
 
       <div className="mt-auto">
@@ -160,7 +183,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const renderMobileHeader = () => (
     <div
-      className="md:hidden bg-gray-900 text-white p-4 fixed top-0 left-0 right-0 z-10 flex items-center justify-between"
+      className="md:hidden bg-purple-900 text-white p-4 fixed top-0 left-0 right-0 z-10 flex items-center justify-between"
       style={{ background: `var(--cor-primaria)` }}
     >
       <div className="flex items-center gap-2">
@@ -206,6 +229,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Button>
             </div>
 
+            {!isPaid && (
+              <Alert className="mb-4 bg-yellow-900/30 border-yellow-800">
+                <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                <AlertDescription className="text-yellow-100 text-xs">
+                  Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.
+                  <Link href="/checkout" className="block mt-1 text-yellow-400 hover:underline">
+                    Ativar assinatura
+                  </Link>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {renderNavItems()}
 
             <div className="mt-auto">
@@ -225,7 +260,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {renderSidebar()}
       {renderMobileHeader()}
 
-      <div className="flex-1 p-6 md:p-8 bg-gray-50 md:ml-64 md:mt-0 mt-16">{children}</div>
+      <div className="flex-1 p-6 md:p-8 bg-gray-50 md:ml-64 md:mt-0 mt-16">
+        {!isPaid && pathname !== "/checkout" && (
+          <Alert className="mb-6 bg-yellow-50 border-yellow-200">
+            <AlertTriangle className="h-4 w-4 text-yellow-800" />
+            <AlertDescription className="text-yellow-800">
+              Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.{" "}
+              <Link href="/checkout" className="font-medium underline">
+                Ativar assinatura
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {children}
+      </div>
     </div>
   )
 }

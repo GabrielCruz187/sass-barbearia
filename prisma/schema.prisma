@@ -10,39 +10,59 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Modelo para as barbearias (tenants)
+// Modelo para as barbearias
 model Barbearia {
   id              String    @id @default(cuid())
   nome            String
   email           String    @unique
   telefone        String
-  endereco        String?
   whatsapp        String
-  senha           String    // Armazenada com hash
+  endereco        String?
   logoUrl         String?
   mensagemMarketing String?
-  
-  // Configurações de aparência
-  corPrimaria     String    @default("#9333ea")
-  corSecundaria   String    @default("#ec4899")
+  corPrimaria     String    @default("#333333")
+  corSecundaria   String    @default("#666666")
+  senha           String
+  ativo           Boolean   @default(false)
   
   // Relacionamentos
   usuarios        Usuario[]
   premios         Premio[]
   jogos           Jogo[]
-  configuracoes   Configuracao?
+  configuracao   Configuracao?
+  assinatura     Assinatura?
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
 
-// Modelo para usuários (clientes e administradores)
+// Modelo para assinaturas
+model Assinatura {
+  id                  String    @id @default(cuid())
+  barbeariaId         String    @unique
+  barbearia           Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  
+  status              String    @default("pending") // pending, active, canceled
+  plano               String    @default("mensal")
+  stripeCustomerId    String?   @unique
+  stripeSubscriptionId String?  @unique
+  stripePaymentIntentId String?
+  
+  dataInicio         DateTime?
+  ultimoPagamento    DateTime?
+  dataProximaCobranca DateTime?
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// Modelo para usuários
 model Usuario {
   id              String    @id @default(cuid())
   nome            String
   email           String
   telefone        String
-  senha           String    // Armazenada com hash
+  senha           String
   role            Role      @default(CLIENTE)
   
   // Relacionamento com barbearia
@@ -52,11 +72,10 @@ model Usuario {
   // Relacionamento com jogos
   jogos           Jogo[]
   
-  // Restrição de unicidade: email único por barbearia
-  @@unique([email, barbeariaId])
-  
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@unique([email, barbeariaId])
 }
 
 // Enum para papéis de usuário
@@ -71,7 +90,7 @@ model Premio {
   titulo          String
   descricao       String
   codigo          String
-  chance          Float     // Porcentagem (0-100)
+  chance          Float     @default(25)
   ativo           Boolean   @default(true)
   
   // Relacionamento com barbearia
@@ -106,6 +125,7 @@ model Jogo {
   dataExpiracao   DateTime
   
   createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // Modelo para configurações adicionais da barbearia

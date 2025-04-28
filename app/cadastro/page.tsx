@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Scissors, AlertTriangle } from "lucide-react"
+import { Scissors, AlertTriangle, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cadastrarBarbearia, cadastrarCliente } from "@/lib/actions/auth-actions"
 import { listarBarbearias } from "@/lib/actions/barbearia-actions"
 
@@ -32,6 +33,7 @@ export default function CadastroPage() {
   const [loadingBarbearias, setLoadingBarbearias] = useState(false)
   const [selectedBarbearia, setSelectedBarbearia] = useState("")
   const [apiError, setApiError] = useState("")
+  const [modeTeste, setModeTeste] = useState(false)
 
   useEffect(() => {
     // Carregar lista de barbearias disponíveis usando Server Action
@@ -110,7 +112,16 @@ export default function CadastroPage() {
     setError("")
 
     try {
-      const result = await cadastrarBarbearia(new FormData(e.currentTarget))
+      const formData = new FormData(e.currentTarget)
+
+      // Adicionar o modo de teste ao formData
+      formData.set("modeTeste", modeTeste.toString())
+
+      console.log("Enviando cadastro de barbearia, modo teste:", modeTeste)
+
+      const result = await cadastrarBarbearia(formData)
+
+      console.log("Resultado do cadastro:", result)
 
       if (result?.error) {
         setError(result.error)
@@ -118,9 +129,18 @@ export default function CadastroPage() {
         return
       }
 
-      // Se tiver sucesso e um redirecionamento, navegue para a URL
-      if (result?.success && result?.redirectTo) {
-        router.push(result.redirectTo)
+      // Se tiver sucesso, redirecionar com base no modo de teste
+      if (result?.success) {
+        const barbeariaId = result.barbeariaId
+
+        if (modeTeste) {
+          console.log("Redirecionando para login (modo teste)")
+          router.push("/login?cadastro=sucesso")
+        } else {
+          console.log("Redirecionando para checkout com barbeariaId:", barbeariaId)
+          // Usar window.location para forçar um redirecionamento completo
+          window.location.href = `/checkout?barbeariaId=${barbeariaId}`
+        }
       }
     } catch (error) {
       console.error("Erro ao cadastrar:", error)
@@ -235,8 +255,34 @@ export default function CadastroPage() {
                   <Label htmlFor="admin-password">Senha</Label>
                   <Input id="admin-password" name="senha" type="password" required />
                 </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="mode-teste"
+                    checked={modeTeste}
+                    onCheckedChange={(checked) => setModeTeste(checked === true)}
+                  />
+                  <Label htmlFor="mode-teste" className="text-sm">
+                    Modo de teste (sem cobrança)
+                  </Label>
+                </div>
+
+                {!modeTeste && (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <CreditCard className="h-4 w-4 text-blue-800" />
+                    <AlertDescription className="text-blue-800">
+                      Após o cadastro, você será redirecionado para a página de pagamento. A assinatura custa
+                      R$49,90/mês.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <Button type="submit" className="w-full bg-gray-800 hover:bg-gray-700 text-white" disabled={loading}>
-                  {loading ? "Cadastrando..." : "Cadastrar Barbearia"}
+                  {loading
+                    ? "Cadastrando..."
+                    : modeTeste
+                      ? "Cadastrar em Modo Teste"
+                      : "Cadastrar e Prosseguir para Pagamento"}
                 </Button>
               </form>
             </TabsContent>
@@ -254,5 +300,6 @@ export default function CadastroPage() {
     </div>
   )
 }
+
 
 
