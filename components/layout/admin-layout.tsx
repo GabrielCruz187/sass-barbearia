@@ -29,7 +29,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   })
 
   useEffect(() => {
-    // Verificar se a barbearia "pagou" usando localStorage
     if (session?.user?.barbeariaId) {
       const paidBarbearias = JSON.parse(localStorage.getItem("paidBarbearias") || "[]")
       setIsPaid(paidBarbearias.includes(session.user.barbeariaId))
