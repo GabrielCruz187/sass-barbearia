@@ -1,12 +1,15 @@
 // Atualizar o arquivo auth.ts para verificar o status de pagamento no localStorage
 
-import type { NextAuthOptions } from "next-auth"
+import type { AuthOptions } from "next-auth"
+import type { JWT } from "next-auth/jwt"
+import type { Session } from "next-auth"
+import type { User } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcrypt"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import prisma from "@/lib/prisma"
 
-export const authOptions: NextAuthOptions = {
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: "jwt",
@@ -117,7 +120,10 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({
+      token,
+      user,
+    }: { token: JWT; user?: User & { role?: string; barbeariaId?: string; assinaturaStatus?: string } }) {
       if (user) {
         token.id = user.id
         token.role = user.role
@@ -126,7 +132,10 @@ export const authOptions: NextAuthOptions = {
       }
       return token
     },
-    async session({ session, token }) {
+    async session({
+      session,
+      token,
+    }: { session: Session; token: JWT & { role?: string; barbeariaId?: string; assinaturaStatus?: string } }) {
       if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as string

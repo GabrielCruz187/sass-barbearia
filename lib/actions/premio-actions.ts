@@ -10,7 +10,7 @@ export async function adicionarPremio(formData: FormData) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !session.user || session.user.role !== "ADMIN") {
       return { error: "Não autorizado" }
     }
 
@@ -82,7 +82,7 @@ export async function atualizarPremio(premioId: string, formData: FormData) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !session.user || session.user.role !== "ADMIN") {
       return { error: "Não autorizado" }
     }
 
@@ -173,7 +173,7 @@ export async function excluirPremio(premioId: string) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !session.user || session.user.role !== "ADMIN") {
       return { error: "Não autorizado" }
     }
 
@@ -211,7 +211,7 @@ export async function resetarPremios() {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !session.user || session.user.role !== "ADMIN") {
       return { error: "Não autorizado" }
     }
 

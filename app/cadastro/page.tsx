@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Scissors, AlertTriangle, CreditCard } from "lucide-react"
+import { Scissors, AlertTriangle, CreditCard } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,9 +48,9 @@ export default function CadastroPage() {
 
         if (result.success) {
           console.log("Barbearias carregadas via Server Action:", result.data)
-          setBarbearias(result.data)
+          setBarbearias(result.data || [])
 
-          if (result.data.length === 0) {
+          if (result.data && result.data.length === 0) {
             setApiError("Não há barbearias cadastradas no sistema. Por favor, cadastre uma barbearia primeiro.")
           }
         } else {
@@ -271,7 +271,7 @@ export default function CadastroPage() {
                   <Alert className="bg-blue-50 border-blue-200">
                     <CreditCard className="h-4 w-4 text-blue-800" />
                     <AlertDescription className="text-blue-800">
-                      Após o cadastro, você será redirecionado para a página de pagamento. 
+                      Após o cadastro, você será redirecionado para a página de pagamento.
                     </AlertDescription>
                   </Alert>
                 )}

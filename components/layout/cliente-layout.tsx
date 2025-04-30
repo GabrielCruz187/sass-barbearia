@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import type { Session } from "next-auth"
 
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"

@@ -245,9 +245,6 @@ export default function ConfiguracoesPage() {
                     name="diasValidade"
                     type="number"
                     min="1"
-                    default
-                    type="number"
-                    min="1"
                     defaultValue={configuracoes?.diasValidade || 30}
                     required
                   />
