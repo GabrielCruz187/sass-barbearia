@@ -87,14 +87,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/premios", label: "Prêmios", icon: Gift },
     { href: "/admin/clientes", label: "Clientes", icon: Users },
     { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
-    { href: "/admin/assinatura", label: "Assinatura", icon: CreditCard },
+    { href: "/checkout", label: "Assinatura", icon: CreditCard },
   ]
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/login" })
   }
 
-  // Mostrar um estado de carregamento enquanto verificamos a sessão
+  // Mostrar um estado de carregamento enquanto verificamos a sessão 
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -124,23 +124,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <nav className="space-y-2">
       {navItems.map((item) => (
         <Button
-          key={item.href}
-          variant="ghost"
-          className={`w-full justify-start ${pathname === item.href ? "bg-white/10" : ""}`}
-          style={{ color: "white" }}
-          asChild
-        >
-          <Link href={item.href} onClick={() => setIsOpen(false)}>
-            <item.icon className="mr-2 h-5 w-5" />
-            {item.label}
-          </Link>
-        </Button>
+        key={item.href}
+        variant="ghost"
+        className={`w-full justify-start ${pathname === item.href ? "bg-white/10" : ""}`}
+        asChild
+      >
+        <Link href={item.href} onClick={() => setIsOpen(false)}>
+          <item.icon className="mr-2 h-5 w-5" />
+          {item.label}
+        </Link>
+      </Button>            
       ))}
     </nav>
   )
 
   const renderSidebar = () => (
-    <div className="w-64 bg-purple-900 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
+    <div className="w-64 bg-gray-800 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
       <div className="flex items-center gap-2 mb-8">
         {loading ? (
           <Skeleton className="h-6 w-6 rounded-full bg-white/20" />

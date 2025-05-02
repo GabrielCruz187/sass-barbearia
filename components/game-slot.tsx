@@ -1,14 +1,21 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import { motion } from "framer-motion"
+import { useEffect, useRef, useState } from "react"
 
 interface GameSlotProps {
   isSpinning: boolean
 }
 
+const prizes = ["corte grátis", "Produto", "Desconto", "Brinde", "Lefo", "Fefo"]
+
 export function GameSlot({ isSpinning }: GameSlotProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [angle, setAngle] = useState(0)
+  const [speed, setSpeed] = useState(0.15) // Velocidade inicial de giro
+  const [spinning, setSpinning] = useState(false) // controle interno
+  const requestRef = useRef<number | null>(null)
+
+  const idleSpeed = 0.001
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -17,87 +24,84 @@ export function GameSlot({ isSpinning }: GameSlotProps) {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const symbols = ["🎁", "💈", "✂️", "💰", "🏆", "💎"]
-    let animationId: number
-    let currentPosition = 0
-    let speed = 0
-    const acceleration = 0.5
-    const maxSpeed = 30
+    const drawWheel = () => {
+      const centerX = canvas.width / 2
+      const centerY = canvas.height / 2
+      const radius = Math.min(centerX, centerY) - 10
+      const sliceAngle = (2 * Math.PI) / prizes.length
 
-    const drawSymbols = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.font = "40px Arial"
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
 
-      for (let i = 0; i < 3; i++) {
-        const symbolIndex = Math.floor((currentPosition + i) % symbols.length)
-        ctx.fillText(symbols[symbolIndex], canvas.width / 2, 50 + i * 60)
+      for (let i = 0; i < prizes.length; i++) {
+        const startAngle = angle + i * sliceAngle
+        const endAngle = startAngle + sliceAngle
+
+        const colors = ["#4169E1", "#FFD700", "#B22222", "#28A745"] // Azul, Amarelo, Vermelho, Verde
+        ctx.fillStyle = colors[i % colors.length]
+        ctx.beginPath()
+        ctx.moveTo(centerX, centerY)
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle)
+        ctx.closePath()
+        ctx.fill()
+
+        // Texto do prêmio
+        ctx.save()
+        ctx.translate(centerX, centerY)
+        ctx.rotate(startAngle + sliceAngle / 2)
+        ctx.textAlign = "right"
+        ctx.fillStyle = "#000"
+        ctx.font = "20px Arial"
+        ctx.fillText(prizes[i], radius - 10, 10)
+        ctx.restore()
       }
     }
 
     const animate = () => {
-      if (isSpinning) {
-        if (speed < maxSpeed) {
-          speed += acceleration
-        }
-        currentPosition += speed
+      setAngle((prev) => {
+        const delta = spinning ? speed : idleSpeed
+        return (prev + delta) % (2 * Math.PI)
+      })
 
-        if (currentPosition >= 1000) {
-          currentPosition = 0
-        }
-      } else {
-        if (speed > 0) {
-          speed *= 0.95
-          currentPosition += speed
-
-          if (speed < 0.5) {
-            speed = 0
-            currentPosition = Math.round(currentPosition)
+      if (spinning) {
+        setSpeed((prevSpeed) => {
+          const newSpeed = prevSpeed * 0.99
+          if (newSpeed <= 0.02) {
+            setSpinning(false)
+            return 0.15
           }
-        }
+          return newSpeed
+        })
       }
 
-      drawSymbols()
-      animationId = requestAnimationFrame(animate)
+      drawWheel()
+      requestRef.current = requestAnimationFrame(animate)
     }
 
-    animate()
+    requestRef.current = requestAnimationFrame(animate)
 
     return () => {
-      cancelAnimationFrame(animationId)
+      if (requestRef.current) cancelAnimationFrame(requestRef.current)
+    }
+  }, [angle, speed, spinning])
+
+  useEffect(() => {
+    if (isSpinning) {
+      setSpinning(true)
+      setSpeed(0.15) 
     }
   }, [isSpinning])
 
   return (
-    <div className="relative w-full max-w-xs mx-auto">
-      <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg p-4 shadow-lg">
-        <div className="bg-white rounded-md overflow-hidden relative">
-          <canvas ref={canvasRef} width={200} height={180} className="w-full" />
+    <div className="relative w-full max-w-sm mx-auto">
+      <img
+        src="/seta.png"
+        alt="Indicador"
+        className="absolute top-[8px] left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 z-50"
+      />
 
-          {/* Indicator line */}
-          <div className="absolute top-1/2 left-0 right-0 h-1 bg-red-500 transform -translate-y-1/2" />
-
-          {/* Overlay effect */}
-          <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white to-transparent opacity-50" />
-          <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-white to-transparent opacity-50" />
-        </div>
+      <div className="bg-white rounded-full overflow-hidden relative border-8 border-gradient-to-r from-yellow-400 via-orange-500 to-red-600 shadow-lg">
+        <canvas ref={canvasRef} width={300} height={300} className="w-full h-full" />
       </div>
-
-      {isSpinning && (
-        <motion.div
-          className="absolute -top-4 -left-4 -right-4 -bottom-4 rounded-lg border-4 border-yellow-300"
-          animate={{
-            boxShadow: ["0 0 0 rgba(250, 204, 21, 0)", "0 0 20px rgba(250, 204, 21, 0.8)"],
-            borderColor: ["rgb(250, 204, 21)", "rgb(234, 179, 8)"],
-          }}
-          transition={{
-            duration: 0.8,
-            repeat: Number.POSITIVE_INFINITY,
-            repeatType: "reverse",
-          }}
-        />
-      )}
     </div>
   )
 }
