@@ -13,9 +13,10 @@ import { useToast } from "@/hooks/use-toast"
 interface StripeCheckoutFormProps {
   barbeariaId: string
   plan: "monthly" | "annual"
+  clientSecret: string
 }
 
-export function StripeCheckoutForm({ barbeariaId, plan }: StripeCheckoutFormProps) {
+export function StripeCheckoutForm({ barbeariaId, plan, clientSecret }: StripeCheckoutFormProps) {
   const router = useRouter()
   const stripe = useStripe()
   const elements = useElements()
@@ -40,7 +41,8 @@ export function StripeCheckoutForm({ barbeariaId, plan }: StripeCheckoutFormProp
         throw new Error("Elemento de cartão não encontrado")
       }
 
-      const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(undefined, {
+      // Confirmar o pagamento usando o clientSecret
+      const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: cardElement,
           billing_details: {
@@ -139,3 +141,4 @@ export function StripeCheckoutForm({ barbeariaId, plan }: StripeCheckoutFormProp
     </form>
   )
 }
+

@@ -327,8 +327,19 @@ export default function CheckoutPage() {
 
           {clientSecret && (
             <div className="mt-4">
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <StripeCheckoutForm barbeariaId={barbeariaId || ""} plan={plan} />
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: "stripe",
+                    variables: {
+                      colorPrimary: "var(--cor-primaria)",
+                    },
+                  },
+                }}
+              >
+                <StripeCheckoutForm barbeariaId={barbeariaId || ""} plan={plan} clientSecret={clientSecret} />
               </Elements>
             </div>
           )}

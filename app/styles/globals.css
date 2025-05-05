@@ -28,6 +28,8 @@
     /* Cores personalizáveis para barbearias */
     --cor-primaria: #333333;
     --cor-secundaria: #666666;
+    --cor-primaria-rgb: 51, 51, 51;
+    --cor-secundaria-rgb: 102, 102, 102;
   }
 
   .dark {

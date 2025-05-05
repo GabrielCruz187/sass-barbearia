@@ -7,13 +7,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Download, Printer, Share2, Gift, AlertTriangle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
-import { GameSlot } from "@/components/game-slot"
+import { GameWheel } from "@/components/game-wheel"
 import { PremioTicket } from "@/components/premio-ticket"
-import { realizarJogo, verificarJogoAtivo } from "@/lib/actions/jogo-actions"
+import { realizarJogo, verificarJogoAtivo, buscarPremiosBarbearia } from "@/lib/actions/jogo-actions"
 import { differenceInSeconds } from "date-fns"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Premio {
+  id: string
   titulo: string
   descricao: string
   codigo: string
@@ -44,20 +45,31 @@ export default function JogoPage() {
   const [temJogoAtivo, setTemJogoAtivo] = useState(false)
   const [semPremios, setSemPremios] = useState(false)
   const [verificado, setVerificado] = useState(false)
+  const [premiosDisponiveis, setPremiosDisponiveis] = useState<Premio[]>([])
+  const [emailEnviado, setEmailEnviado] = useState(false)
+  const [selectedPrizeIndex, setSelectedPrizeIndex] = useState(-1)
+  const [spinCompleted, setSpinCompleted] = useState(false)
 
   useEffect(() => {
-    // Verificar se o usuário já tem um jogo ativo
+    // Verificar se o usuário já tem um jogo ativo e buscar prêmios disponíveis
     const verificarJogo = async () => {
       try {
         setLoading(true)
         // Verificar se há um jogo ativo sem realizar um novo jogo
         const result = await verificarJogoAtivo()
 
+        // Buscar prêmios disponíveis para a roleta
+        const premiosResult = await buscarPremiosBarbearia()
+        if (premiosResult.success && premiosResult.premios) {
+          setPremiosDisponiveis(premiosResult.premios)
+        }
+
         if (result.jogoExistente) {
           // Se já existe um jogo ativo, armazenar os dados mas não mostrar o ticket automaticamente
           setJogoAtual({
             id: result.jogoExistente.id,
             premio: {
+              id: result.jogoExistente.premio.id,
               titulo: result.jogoExistente.premio.titulo,
               descricao: result.jogoExistente.premio.descricao,
               codigo: result.jogoExistente.premio.codigo,
@@ -119,44 +131,85 @@ export default function JogoPage() {
     if (isSpinning) return
     setIsSpinning(true)
     setError("")
+    setSpinCompleted(false)
 
     try {
-      // Simular o tempo de giro
-      setTimeout(async () => {
-        const result = await realizarJogo()
+      // Realizar o jogo imediatamente para determinar o prêmio
+      const result = await realizarJogo()
 
-        if (result.error) {
-          setError(result.error)
-          setIsSpinning(false)
-          return
-        }
-
-        if (result.semPremios) {
-          setSemPremios(true)
-          setIsSpinning(false)
-          return
-        }
-
-        if (result.success) {
-          setJogoAtual(result.jogo)
-
-          // Calcular countdown
-          const segundosRestantes = differenceInSeconds(new Date(result.jogo.dataExpiracao), new Date())
-          setCountdown(Math.max(0, segundosRestantes))
-
-          setShowTicket(true)
-        } else if (result.jogoExistente) {
-          // Se já existe um jogo, mostrar o ticket
-          setShowTicket(true)
-        }
-
+      if (result.error) {
+        setError(result.error)
         setIsSpinning(false)
-      }, 3000)
+        return
+      }
+
+      if (result.semPremios) {
+        setSemPremios(true)
+        setIsSpinning(false)
+        return
+      }
+
+      if (result.success) {
+        setJogoAtual(result.jogo)
+
+        // Encontrar o índice do prêmio sorteado na lista de prêmios disponíveis
+        const premioIndex = premiosDisponiveis.findIndex((p) => p.id === result.jogo.premio.id)
+        setSelectedPrizeIndex(premioIndex >= 0 ? premioIndex : Math.floor(Math.random() * premiosDisponiveis.length))
+
+        // Calcular countdown
+        const segundosRestantes = differenceInSeconds(new Date(result.jogo.dataExpiracao), new Date())
+        setCountdown(Math.max(0, segundosRestantes))
+
+        // Enviar email de notificação
+        if (result.emailEnviado) {
+          setEmailEnviado(true)
+        }
+      } else if (result.jogoExistente) {
+        // Se já existe um jogo, mostrar o ticket após a animação
+        setJogoAtual({
+          id: result.jogoExistente.id,
+          premio: {
+            id: result.jogoExistente.premio.id,
+            titulo: result.jogoExistente.premio.titulo,
+            descricao: result.jogoExistente.premio.descricao,
+            codigo: result.jogoExistente.premio.codigo,
+          },
+          barbearia: {
+            nome: result.jogoExistente.barbearia.nome,
+            whatsapp: result.jogoExistente.barbearia.whatsapp,
+            mensagemMarketing: result.jogoExistente.barbearia.mensagemMarketing,
+            logoUrl: result.jogoExistente.barbearia.logoUrl,
+          },
+          dataExpiracao: result.jogoExistente.dataExpiracao,
+        })
+
+        // Encontrar o índice do prêmio existente
+        const premioIndex = premiosDisponiveis.findIndex((p) => p.id === result.jogoExistente.premio.id)
+        setSelectedPrizeIndex(premioIndex >= 0 ? premioIndex : Math.floor(Math.random() * premiosDisponiveis.length))
+      }
     } catch (error) {
       console.error("Erro ao realizar jogo:", error)
       setError("Ocorreu um erro ao realizar o jogo. Tente novamente.")
       setIsSpinning(false)
     }
+  }
+
+  const handleSpinComplete = () => {
+    setSpinCompleted(true)
+    setIsSpinning(false)
+
+    // Mostrar o ticket após um pequeno delay para melhor experiência do usuário
+    setTimeout(() => {
+      setShowTicket(true)
+
+      // Mostrar toast de sucesso
+      if (emailEnviado) {
+        toast({
+          title: "Email enviado!",
+          description: "Verifique sua caixa de entrada para ver seu prêmio.",
+        })
+      }
+    }, 1000)
   }
 
   const handlePrint = () => {
@@ -222,9 +275,9 @@ export default function JogoPage() {
                 />
               </div>
 
-              <h2 className="text-2xl font-bold text-center mb-2">Jogue e Ganhe!</h2>
+              <h2 className="text-2xl font-bold text-center mb-2">Gire a Roleta e Ganhe!</h2>
               <p className="text-center text-muted-foreground mb-6">
-                Clique no botão abaixo para receber seu prêmio exclusivo
+                Clique no botão abaixo para girar a roleta e ganhar seu prêmio
               </p>
 
               {error && <div className="mb-4 p-3 bg-red-50 text-red-800 rounded-md text-sm w-full">{error}</div>}
@@ -237,11 +290,18 @@ export default function JogoPage() {
                   </AlertDescription>
                 </Alert>
               ) : (
-                <GameSlot isSpinning={isSpinning} />
+                <div className="mb-6">
+                  <GameWheel
+                    isSpinning={isSpinning}
+                    premios={premiosDisponiveis}
+                    selectedPrizeIndex={selectedPrizeIndex}
+                    onSpinComplete={handleSpinComplete}
+                  />
+                </div>
               )}
 
               {temJogoAtivo ? (
-                <div className="mt-6 flex flex-col items-center">
+                <div className="mt-2 flex flex-col items-center">
                   <p className="text-amber-600 font-medium mb-3">Você já tem um prêmio ativo! Deseja visualizá-lo?</p>
                   <div className="flex gap-3">
                     <Button
@@ -272,10 +332,10 @@ export default function JogoPage() {
                     onClick={handleSpin}
                     disabled={isSpinning || semPremios}
                     size="lg"
-                    className="mt-6 bg-gray-800 hover:bg-gray-700 text-white text-lg px-8 py-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105"
+                    className="mt-2 bg-gray-800 hover:bg-gray-700 text-white text-lg px-8 py-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105"
                     style={{ backgroundColor: "var(--cor-primaria)", color: "white" }}
                   >
-                    {isSpinning ? "Girando..." : "Receba seu Prêmio!"}
+                    {isSpinning ? "Girando..." : "Girar a Roleta!"}
                   </Button>
 
                   <p className="mt-4 text-xs text-muted-foreground text-center">
@@ -338,6 +398,14 @@ export default function JogoPage() {
                   />
                 )}
 
+                {emailEnviado && (
+                  <Alert className="mt-4 mb-2 bg-green-50 border-green-200">
+                    <AlertDescription className="text-green-800">
+                      Enviamos os detalhes do seu prêmio para o seu email!
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="mt-6 text-center">
                   <p className="text-sm font-medium mb-2">Válido por:</p>
                   <div className="bg-gray-100 rounded-lg p-3 font-mono text-lg font-bold">{formatCountdown()}</div>
@@ -371,3 +439,5 @@ export default function JogoPage() {
     </AnimatePresence>
   )
 }
+
+

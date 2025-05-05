@@ -3,8 +3,9 @@ import Stripe from "stripe"
 import prisma from "@/lib/prisma"
 
 // Inicializar o Stripe com a chave secreta
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+})
 
 export async function POST(req: Request) {
   try {
@@ -94,9 +95,10 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error("Erro ao criar assinatura:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao criar assinatura" },
-      { status: 500 },
-    )
+    const errorMessage = error instanceof Error ? error.message : "Erro ao criar assinatura"
+    console.error("Detalhes do erro:", errorMessage)
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
+
