@@ -23,18 +23,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isPaid, setIsPaid] = useState(false)
+  const [checkingSubscription, setCheckingSubscription] = useState(true)
   const [barbeariaInfo, setBarbeariaInfo] = useState({
     nome: "",
     logoUrl: "",
   })
-
-  useEffect(() => {
-    // Verificar se a barbearia "pagou" usando localStorage
-    if (session?.user?.barbeariaId) {
-      const paidBarbearias = JSON.parse(localStorage.getItem("paidBarbearias") || "[]")
-      setIsPaid(paidBarbearias.includes(session.user.barbeariaId))
-    }
-  }, [session])
 
   useEffect(() => {
     console.log("AdminLayout - session:", session)
@@ -51,6 +44,36 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
+
+  // Verificar o status da assinatura da barbearia
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      if (status === "authenticated" && session?.user?.barbeariaId) {
+        setCheckingSubscription(true)
+        try {
+          console.log("Verificando status da assinatura...")
+          const response = await fetch("/api/check-subscription-status")
+          if (response.ok) {
+            const data = await response.json()
+            console.log("Status da assinatura:", data)
+            setIsPaid(data.status === "active")
+          } else {
+            console.error("Erro ao verificar status da assinatura")
+            setIsPaid(false)
+          }
+        } catch (error) {
+          console.error("Erro ao verificar status da assinatura:", error)
+          setIsPaid(false)
+        } finally {
+          setCheckingSubscription(false)
+        }
+      } else {
+        setCheckingSubscription(false)
+      }
+    }
+
+    checkSubscriptionStatus()
+  }, [session, status])
 
   useEffect(() => {
     const fetchBarbeariaInfo = async () => {
@@ -87,14 +110,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/premios", label: "Prêmios", icon: Gift },
     { href: "/admin/clientes", label: "Clientes", icon: Users },
     { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
-    { href: "/checkout", label: "Assinatura", icon: CreditCard },
+    { href: "/admin/assinatura", label: "Assinatura", icon: CreditCard },
   ]
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/login" })
   }
 
-  // Mostrar um estado de carregamento enquanto verificamos a sessão 
+  // Mostrar um estado de carregamento enquanto verificamos a sessão
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -124,22 +147,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <nav className="space-y-2">
       {navItems.map((item) => (
         <Button
-        key={item.href}
-        variant="ghost"
-        className={`w-full justify-start ${pathname === item.href ? "bg-white/10" : ""}`}
-        asChild
-      >
-        <Link href={item.href} onClick={() => setIsOpen(false)}>
-          <item.icon className="mr-2 h-5 w-5" />
-          {item.label}
-        </Link>
-      </Button>            
+          key={item.href}
+          variant="ghost"
+          className={`w-full justify-start ${pathname === item.href ? "bg-white/10" : ""}`}
+          style={{ color: "white" }}
+          asChild
+        >
+          <Link href={item.href} onClick={() => setIsOpen(false)}>
+            <item.icon className="mr-2 h-5 w-5" />
+            {item.label}
+          </Link>
+        </Button>
       ))}
     </nav>
   )
 
   const renderSidebar = () => (
-    <div className="w-64 bg-gray-800 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
+    <div className="w-64 bg-purple-900 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
       <div className="flex items-center gap-2 mb-8">
         {loading ? (
           <Skeleton className="h-6 w-6 rounded-full bg-white/20" />
@@ -157,12 +181,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </h1>
       </div>
 
-      {!isPaid && (
+      {!checkingSubscription && !isPaid && pathname !== "/admin/assinatura" && (
         <Alert className="mb-4 bg-yellow-900/30 border-yellow-800">
           <AlertTriangle className="h-4 w-4 text-yellow-400" />
           <AlertDescription className="text-yellow-100 text-xs">
             Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.
-            <Link href="/checkout" className="block mt-1 text-yellow-400 hover:underline">
+            <Link href="/admin/assinatura" className="block mt-1 text-yellow-400 hover:underline">
               Ativar assinatura
             </Link>
           </AlertDescription>
@@ -228,12 +252,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Button>
             </div>
 
-            {!isPaid && (
+            {!checkingSubscription && !isPaid && pathname !== "/admin/assinatura" && (
               <Alert className="mb-4 bg-yellow-900/30 border-yellow-800">
                 <AlertTriangle className="h-4 w-4 text-yellow-400" />
                 <AlertDescription className="text-yellow-100 text-xs">
                   Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.
-                  <Link href="/checkout" className="block mt-1 text-yellow-400 hover:underline">
+                  <Link href="/admin/assinatura" className="block mt-1 text-yellow-400 hover:underline">
                     Ativar assinatura
                   </Link>
                 </AlertDescription>
@@ -260,12 +284,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {renderMobileHeader()}
 
       <div className="flex-1 p-6 md:p-8 bg-gray-50 md:ml-64 md:mt-0 mt-16">
-        {!isPaid && pathname !== "/checkout" && (
+        {!checkingSubscription && !isPaid && pathname !== "/admin/assinatura" && pathname !== "/checkout" && (
           <Alert className="mb-6 bg-yellow-50 border-yellow-200">
             <AlertTriangle className="h-4 w-4 text-yellow-800" />
             <AlertDescription className="text-yellow-800">
               Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.{" "}
-              <Link href="/checkout" className="font-medium underline">
+              <Link href="/admin/assinatura" className="font-medium underline">
                 Ativar assinatura
               </Link>
             </AlertDescription>
@@ -277,3 +301,4 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     </div>
   )
 }
+

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Sparkles, Info } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { loadStripe } from "@stripe/stripe-js"
@@ -22,6 +22,7 @@ export default function CheckoutPage() {
   const barbeariaId = searchParams.get("barbeariaId")
   const success = searchParams.get("success") === "true"
   const canceled = searchParams.get("canceled") === "true"
+  const mudarPlano = searchParams.get("mudarPlano") === "true"
   const [plan, setPlan] = useState<"monthly" | "annual">("monthly")
 
   const [loading, setLoading] = useState(false)
@@ -29,6 +30,35 @@ export default function CheckoutPage() {
   const [clientSecret, setClientSecret] = useState("")
   const [freeSlotAvailable, setFreeSlotAvailable] = useState(false)
   const [isCreatingSubscription, setIsCreatingSubscription] = useState(false)
+  const [barbearia, setBarbearia] = useState<any>(null)
+  const [sessionBarbeariaId, setSessionBarbeariaId] = useState<string | null>(null)
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false)
+
+  // No início da função CheckoutPage
+  console.log("Parâmetros de URL:", {
+    barbeariaId: searchParams.get("barbeariaId"),
+    success: searchParams.get("success"),
+    mudarPlano: searchParams.get("mudarPlano"),
+  })
+
+  // Obter o ID da barbearia da sessão
+  useEffect(() => {
+    const getSessionInfo = async () => {
+      try {
+        const response = await fetch("/api/auth/session")
+        const session = await response.json()
+
+        if (session && session.user && session.user.barbeariaId) {
+          console.log("ID da barbearia na sessão:", session.user.barbeariaId)
+          setSessionBarbeariaId(session.user.barbeariaId)
+        }
+      } catch (error) {
+        console.error("Erro ao obter informações da sessão:", error)
+      }
+    }
+
+    getSessionInfo()
+  }, [])
 
   useEffect(() => {
     // Verificar se ainda há vagas gratuitas disponíveis
@@ -49,12 +79,13 @@ export default function CheckoutPage() {
   useEffect(() => {
     // Log para depuração
     console.log("Checkout page - barbeariaId:", barbeariaId)
+    console.log("Checkout page - sessionBarbeariaId:", sessionBarbeariaId)
     console.log("Checkout page - success:", success)
     console.log("Checkout page - canceled:", canceled)
 
     // Se não tiver barbeariaId, redirecionar para a página de cadastro
     // Mas apenas se não estiver em um estado de sucesso ou cancelamento
-    if (!barbeariaId && !success && !canceled) {
+    if (!barbeariaId && !sessionBarbeariaId && !success && !canceled) {
       // Verificar se o usuário está autenticado
       const checkSession = async () => {
         try {
@@ -78,25 +109,116 @@ export default function CheckoutPage() {
 
       checkSession()
     }
-  }, [barbeariaId, router, success, canceled])
+  }, [barbeariaId, sessionBarbeariaId, router, success, canceled])
+
+  useEffect(() => {
+    const carregarBarbearia = async () => {
+      // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+      const idToUse = sessionBarbeariaId || barbeariaId
+
+      if (!idToUse) {
+        console.error("ID da barbearia não fornecido")
+        setError("ID da barbearia não fornecido")
+        return
+      }
+
+      console.log("Carregando informações da barbearia:", idToUse)
+
+      try {
+        setLoading(true)
+        const result = await getBarbeariaInfo(idToUse)
+
+        console.log("Resultado da busca da barbearia:", result)
+
+        if (result.error) {
+          setError(result.error)
+        } else if (result.success && result.data) {
+          setBarbearia(result.data)
+
+          // Verificar se já tem assinatura ativa
+          if (result.data.assinatura && result.data.assinatura.status === "active") {
+            setHasActiveSubscription(true)
+
+            // Se não estiver tentando mudar de plano, redirecionar para o dashboard
+            if (!mudarPlano) {
+              toast({
+                title: "Assinatura ativa",
+                description: "Sua barbearia já possui uma assinatura ativa.",
+                variant: "default",
+              })
+
+              // Aguardar um pouco antes de redirecionar
+              setTimeout(() => {
+                router.push("/admin/dashboard")
+              }, 2000)
+            }
+          }
+        } else {
+          setError("Erro ao carregar informações da barbearia")
+        }
+      } catch (error) {
+        console.error("Erro ao carregar barbearia:", error)
+        setError("Erro ao carregar informações da barbearia")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (barbeariaId || sessionBarbeariaId) {
+      carregarBarbearia()
+    }
+  }, [barbeariaId, sessionBarbeariaId, router, mudarPlano, toast])
 
   const createSubscription = async () => {
-    if (!barbeariaId) return
+    // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+    const idToUse = sessionBarbeariaId || barbeariaId
+
+    if (!idToUse) {
+      setError("ID da barbearia não fornecido")
+      return
+    }
 
     setIsCreatingSubscription(true)
     setError("")
 
     try {
+      console.log("Criando assinatura para barbearia:", idToUse)
+
       const response = await fetch("/api/create-subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          barbeariaId,
+          barbeariaId: idToUse,
           plan,
+          forceUpdate: mudarPlano, // Indicar se é uma mudança de plano
         }),
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Erro na resposta da API:", errorData)
+
+        // Se já tem assinatura ativa e não está tentando mudar de plano
+        if (errorData.error === "Barbearia já possui uma assinatura ativa" && !mudarPlano) {
+          setHasActiveSubscription(true)
+          toast({
+            title: "Assinatura ativa",
+            description: "Sua barbearia já possui uma assinatura ativa.",
+            variant: "default",
+          })
+
+          // Aguardar um pouco antes de redirecionar
+          setTimeout(() => {
+            router.push("/admin/dashboard")
+          }, 2000)
+          return
+        }
+
+        setError(errorData.error || "Erro ao criar assinatura")
+        return
+      }
 
       const data = await response.json()
 
@@ -115,7 +237,13 @@ export default function CheckoutPage() {
   }
 
   const handleActivateFree = async () => {
-    if (!barbeariaId) return
+    // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+    const idToUse = sessionBarbeariaId || barbeariaId
+
+    if (!idToUse) {
+      setError("ID da barbearia não fornecido")
+      return
+    }
 
     setLoading(true)
     setError("")
@@ -127,7 +255,7 @@ export default function CheckoutPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          barbeariaId,
+          barbeariaId: idToUse,
         }),
       })
 
@@ -149,7 +277,9 @@ export default function CheckoutPage() {
   }
 
   const handleCancel = () => {
-    router.push(`/checkout?canceled=true&barbeariaId=${barbeariaId}`)
+    // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+    const idToUse = sessionBarbeariaId || barbeariaId
+    router.push(`/checkout?canceled=true&barbeariaId=${idToUse}`)
   }
 
   // Renderizar mensagem de sucesso
@@ -172,7 +302,7 @@ export default function CheckoutPage() {
             </Alert>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/login")}>Ir para o Login</Button>
+            <Button onClick={() => router.push("/admin/dashboard")}>Ir para o Dashboard</Button>
           </CardFooter>
         </Card>
       </div>
@@ -197,10 +327,49 @@ export default function CheckoutPage() {
             </Alert>
           </CardContent>
           <CardFooter className="flex justify-center gap-4">
-            <Button variant="outline" onClick={() => router.push("/login")}>
-              Ir para o Login
+            <Button variant="outline" onClick={() => router.push("/admin/dashboard")}>
+              Ir para o Dashboard
             </Button>
-            <Button onClick={() => router.push(`/checkout?barbeariaId=${barbeariaId}`)}>Tentar Novamente</Button>
+            <Button
+              onClick={() => {
+                // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+                const idToUse = sessionBarbeariaId || barbeariaId
+                router.push(`/checkout?barbeariaId=${idToUse}`)
+              }}
+            >
+              Tentar Novamente
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
+  // Renderizar mensagem de assinatura ativa (quando não está tentando mudar de plano)
+  if (hasActiveSubscription && !mudarPlano) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex justify-center mb-4 text-green-500">
+              <CheckCircle2 size={48} />
+            </div>
+            <CardTitle className="text-center">Assinatura Ativa</CardTitle>
+            <CardDescription className="text-center">Sua barbearia já possui uma assinatura ativa.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Alert className="bg-blue-50 border-blue-200 mb-4">
+              <Info className="h-4 w-4 text-blue-800" />
+              <AlertDescription className="text-blue-800">
+                Você já tem acesso completo ao sistema. Não é necessário realizar um novo pagamento.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+          <CardFooter className="flex justify-center gap-4">
+            <Button onClick={() => router.push("/admin/dashboard")}>Ir para o Dashboard</Button>
+            <Button variant="outline" onClick={() => router.push("/admin/assinatura")}>
+              Gerenciar Assinatura
+            </Button>
           </CardFooter>
         </Card>
       </div>
@@ -211,16 +380,32 @@ export default function CheckoutPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center">Escolha seu Plano</CardTitle>
-          <CardDescription className="text-center">Complete o pagamento para ativar sua barbearia</CardDescription>
+          <CardTitle className="text-center">{mudarPlano ? "Alterar Plano" : "Escolha seu Plano"}</CardTitle>
+          <CardDescription className="text-center">
+            {mudarPlano ? "Escolha um novo plano para sua barbearia" : "Complete o pagamento para ativar sua barbearia"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {freeSlotAvailable && (
+          {freeSlotAvailable && !mudarPlano && (
             <Alert className="mb-6 bg-blue-50 border-blue-200">
               <Sparkles className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800">
                 <span className="font-bold">Parabéns!</span> Você é um dos primeiros a se cadastrar e pode ativar o
                 plano gratuitamente!
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {mudarPlano && barbearia?.assinatura?.plano && (
+            <Alert className="mb-6 bg-blue-50 border-blue-200">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <span className="font-bold">Plano atual:</span>{" "}
+                {barbearia.assinatura.plano === "mensal"
+                  ? "Mensal (R$199,00/mês)"
+                  : barbearia.assinatura.plano === "anual"
+                    ? "Anual (R$150,00/mês)"
+                    : barbearia.assinatura.plano}
               </AlertDescription>
             </Alert>
           )}
@@ -299,10 +484,14 @@ export default function CheckoutPage() {
               )}
 
               <div className="flex gap-4">
-                <Button variant="outline" onClick={handleCancel} className="flex-1">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(mudarPlano ? "/admin/assinatura" : "/admin/dashboard")}
+                  className="flex-1"
+                >
                   Cancelar
                 </Button>
-                {freeSlotAvailable ? (
+                {freeSlotAvailable && !mudarPlano ? (
                   <Button
                     onClick={handleActivateFree}
                     className="flex-1"
@@ -318,7 +507,11 @@ export default function CheckoutPage() {
                     disabled={isCreatingSubscription}
                     style={{ backgroundColor: "var(--cor-primaria)" }}
                   >
-                    {isCreatingSubscription ? "Processando..." : "Continuar para Pagamento"}
+                    {isCreatingSubscription
+                      ? "Processando..."
+                      : mudarPlano
+                        ? "Mudar Plano"
+                        : "Continuar para Pagamento"}
                   </Button>
                 )}
               </div>
@@ -339,7 +532,12 @@ export default function CheckoutPage() {
                   },
                 }}
               >
-                <StripeCheckoutForm barbeariaId={barbeariaId || ""} plan={plan} clientSecret={clientSecret} />
+                <StripeCheckoutForm
+                  barbeariaId={sessionBarbeariaId || barbeariaId || ""}
+                  plan={plan}
+                  clientSecret={clientSecret}
+                  isChangingPlan={mudarPlano}
+                />
               </Elements>
             </div>
           )}
@@ -348,5 +546,31 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
+async function getBarbeariaInfo(barbeariaId: string) {
+  try {
+    if (!barbeariaId || barbeariaId === "null") {
+      return { success: false, error: "ID da barbearia não fornecido ou inválido" }
+    }
+
+    const response = await fetch(`/api/get-barbearia?barbeariaId=${barbeariaId}`)
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Erro ao buscar barbearia:", errorData)
+      return { success: false, error: errorData.message || "Erro ao buscar barbearia" }
+    }
+
+    const data = await response.json()
+    return { success: true, data }
+  } catch (error) {
+    console.error("Erro ao buscar barbearia:", error)
+    return { success: false, error: "Erro ao buscar barbearia" }
+  }
+}
+
+
+
+
 
 

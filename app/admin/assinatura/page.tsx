@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { verificarAssinatura, cancelarAssinatura } from "@/lib/actions/checkout-actions"
-import { CheckCircle2, AlertTriangle, CreditCard, XCircle, Calendar } from "lucide-react"
+import { verificarAssinatura, cancelarAssinatura, forcarAtualizacaoAssinatura } from "@/lib/actions/checkout-actions"
+import { CheckCircle2, AlertTriangle, CreditCard, XCircle, Calendar, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -15,6 +15,7 @@ export default function AssinaturaPage() {
   const [assinatura, setAssinatura] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState(false)
+  const [atualizando, setAtualizando] = useState(false)
   const [activeTab, setActiveTab] = useState("status")
   const { toast } = useToast()
   const router = useRouter()
@@ -40,24 +41,26 @@ export default function AssinaturaPage() {
     checkSession()
   }, [router])
 
-  useEffect(() => {
-    const carregarAssinatura = async () => {
-      setLoading(true)
-      try {
-        const result = await verificarAssinatura()
-        if (result.error) {
-          setError(result.error)
-        } else {
-          setAssinatura(result)
-        }
-      } catch (error) {
-        setError("Erro ao carregar informações da assinatura")
-        console.error(error)
-      } finally {
-        setLoading(false)
-      }
-    }
+  const carregarAssinatura = async () => {
+    setLoading(true)
+    try {
+      const result = await verificarAssinatura()
+      console.log("Resultado da verificação de assinatura:", result)
 
+      if (result.error) {
+        setError(result.error)
+      } else {
+        setAssinatura(result)
+      }
+    } catch (error) {
+      setError("Erro ao carregar informações da assinatura")
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     carregarAssinatura()
   }, [])
 
@@ -74,8 +77,7 @@ export default function AssinaturaPage() {
       } else {
         toast({ title: "Sucesso", description: "Assinatura cancelada com sucesso" })
         // Recarregar os dados da assinatura
-        const assinaturaAtualizada = await verificarAssinatura()
-        setAssinatura(assinaturaAtualizada)
+        carregarAssinatura()
       }
     } catch (error) {
       toast({
@@ -88,11 +90,41 @@ export default function AssinaturaPage() {
     }
   }
 
+  const handleForcarAtualizacao = async () => {
+    setAtualizando(true)
+    try {
+      const result = await forcarAtualizacaoAssinatura()
+      console.log("Resultado da atualização forçada:", result)
+
+      if (result.error) {
+        toast({ title: "Erro", description: result.error, variant: "destructive" })
+      } else {
+        toast({
+          title: "Sucesso",
+          description: "Status da assinatura atualizado com sucesso",
+          variant: "default",
+        })
+        // Recarregar os dados da assinatura
+        await carregarAssinatura()
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao atualizar o status da assinatura",
+        variant: "destructive",
+      })
+    } finally {
+      setAtualizando(false)
+    }
+  }
+
   const handleRenovarAssinatura = () => {
+    console.log("Redirecionando para checkout com barbeariaId:", assinatura?.barbeariaId)
     router.push(`/checkout?barbeariaId=${assinatura?.barbeariaId}`)
   }
 
   const handleMudarPlano = () => {
+    console.log("Redirecionando para mudar plano com barbeariaId:", assinatura?.barbeariaId)
     router.push(`/checkout?barbeariaId=${assinatura?.barbeariaId}&mudarPlano=true`)
   }
 
@@ -111,6 +143,13 @@ export default function AssinaturaPage() {
       <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--cor-primaria)" }}>
         Gerenciar Assinatura
       </h1>
+
+      <div className="mb-4 flex justify-end">
+        <Button variant="outline" size="sm" onClick={carregarAssinatura} className="flex items-center gap-1">
+          <RefreshCw className="h-4 w-4" />
+          Atualizar
+        </Button>
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
@@ -189,6 +228,19 @@ export default function AssinaturaPage() {
                     </div>
                   )}
 
+                  {assinatura.ultimoPagamento && (
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium">Último pagamento:</div>
+                      <div>
+                        {new Date(assinatura.ultimoPagamento).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {assinatura.status === "active" && (
                     <div className="mt-6 p-4 bg-gray-50 rounded-md">
                       <p className="text-sm text-gray-700">
@@ -203,6 +255,24 @@ export default function AssinaturaPage() {
                         Sua assinatura está pendente de pagamento. Complete o pagamento para ter acesso completo ao
                         sistema.
                       </p>
+
+                      {assinatura.ultimoPagamento && (
+                        <div className="mt-2">
+                          <p className="text-sm text-yellow-800">
+                            <strong>Nota:</strong> Detectamos um pagamento recente. Se você já completou o pagamento,
+                            clique no botão "Forçar Atualização" abaixo para atualizar o status da sua assinatura.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleForcarAtualizacao}
+                            disabled={atualizando}
+                            className="mt-2"
+                          >
+                            {atualizando ? "Atualizando..." : "Forçar Atualização"}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -217,7 +287,7 @@ export default function AssinaturaPage() {
               )}
             </CardContent>
             {assinatura && (
-              <CardFooter className="flex gap-4">
+              <CardFooter className="flex gap-4 flex-wrap">
                 {assinatura.status === "active" && assinatura.plano !== "gratuito" && (
                   <>
                     <Button variant="outline" onClick={handleMudarPlano}>
@@ -234,6 +304,13 @@ export default function AssinaturaPage() {
                   <Button onClick={handleRenovarAssinatura}>
                     <CreditCard className="mr-2 h-4 w-4" />
                     {assinatura.status === "pending" ? "Completar Pagamento" : "Renovar Assinatura"}
+                  </Button>
+                )}
+
+                {assinatura.ultimoPagamento && assinatura.status !== "active" && (
+                  <Button variant="secondary" onClick={handleForcarAtualizacao} disabled={atualizando}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {atualizando ? "Atualizando..." : "Forçar Atualização de Status"}
                   </Button>
                 )}
               </CardFooter>
@@ -356,4 +433,7 @@ export default function AssinaturaPage() {
     </div>
   )
 }
+
+
+
 

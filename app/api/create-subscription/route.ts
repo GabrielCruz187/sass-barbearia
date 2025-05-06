@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 // Inicializar o Stripe com a chave secreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -9,15 +11,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
   try {
-    const { barbeariaId, plan } = await req.json()
+    const { barbeariaId, plan, forceUpdate } = await req.json()
 
-    if (!barbeariaId) {
+    // Obter a sessão diretamente usando getServerSession em vez de fazer fetch
+    const session = await getServerSession(authOptions)
+    const sessionBarbeariaId = session?.user?.barbeariaId
+
+    if (!barbeariaId && !sessionBarbeariaId) {
       return NextResponse.json({ error: "ID da barbearia não fornecido" }, { status: 400 })
     }
 
+    // Usar o ID da sessão se disponível, caso contrário usar o ID fornecido
+    const finalBarbeariaId = sessionBarbeariaId || barbeariaId
+
     // Verificar se a barbearia existe
     const barbearia = await prisma.barbearia.findUnique({
-      where: { id: barbeariaId },
+      where: { id: finalBarbeariaId },
     })
 
     if (!barbearia) {
@@ -26,10 +35,11 @@ export async function POST(req: Request) {
 
     // Verificar se já existe uma assinatura ativa
     const assinaturaExistente = await prisma.assinatura.findUnique({
-      where: { barbeariaId },
+      where: { barbeariaId: finalBarbeariaId },
     })
 
-    if (assinaturaExistente?.status === "active") {
+    // Se já existe uma assinatura ativa e não estamos forçando uma atualização, retornar erro
+    if (assinaturaExistente?.status === "active" && !forceUpdate) {
       return NextResponse.json({ error: "Barbearia já possui uma assinatura ativa" }, { status: 400 })
     }
 
@@ -45,7 +55,7 @@ export async function POST(req: Request) {
         email: barbearia.email,
         name: barbearia.nome,
         metadata: {
-          barbeariaId: barbearia.id,
+          barbeariaId: finalBarbeariaId,
         },
       })
 
@@ -58,8 +68,8 @@ export async function POST(req: Request) {
       currency: "brl",
       customer: stripeCustomerId,
       metadata: {
-        barbeariaId: barbearia.id,
-        type: "subscription_setup",
+        barbeariaId: finalBarbeariaId,
+        type: forceUpdate ? "subscription_update" : "subscription_setup",
         plan: planName,
       },
       automatic_payment_methods: {
@@ -67,17 +77,23 @@ export async function POST(req: Request) {
       },
     })
 
+    console.log("PaymentIntent criado:", {
+      id: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret ? "Disponível" : "Não disponível",
+      status: paymentIntent.status,
+    })
+
     // Atualizar ou criar o registro de assinatura
-    await prisma.assinatura.upsert({
-      where: { barbeariaId },
+    const assinatura = await prisma.assinatura.upsert({
+      where: { barbeariaId: finalBarbeariaId },
       update: {
         stripeCustomerId,
         stripePaymentIntentId: paymentIntent.id,
-        status: "pending",
+        status: forceUpdate ? "pending_update" : "pending",
         plano: planName,
       },
       create: {
-        barbeariaId,
+        barbeariaId: finalBarbeariaId,
         stripeCustomerId,
         stripePaymentIntentId: paymentIntent.id,
         status: "pending",
@@ -90,6 +106,8 @@ export async function POST(req: Request) {
       },
     })
 
+    console.log("Assinatura criada/atualizada:", assinatura)
+
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
     })
@@ -101,4 +119,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
+
+
 

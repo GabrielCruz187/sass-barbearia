@@ -3,6 +3,7 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { revalidatePath } from "next/cache"
 
 // Função para obter informações da barbearia para o checkout
 export async function getBarbeariaInfo(barbeariaId: string) {
@@ -55,21 +56,33 @@ export async function verificarAssinatura() {
       return { error: "Usuário não autenticado ou não é proprietário de barbearia" }
     }
 
+    console.log("Verificando assinatura para barbeariaId:", session.user.barbeariaId)
+
+    // Forçar revalidação do cache para garantir dados atualizados
+    revalidatePath("/admin/assinatura")
+
+    // Buscar a assinatura diretamente do banco de dados
     const assinatura = await prisma.assinatura.findUnique({
       where: { barbeariaId: session.user.barbeariaId },
     })
 
     if (!assinatura) {
+      console.log("Nenhuma assinatura encontrada para barbeariaId:", session.user.barbeariaId)
       return {
         status: "inactive",
         message: "Nenhuma assinatura encontrada",
+        barbeariaId: session.user.barbeariaId,
       }
     }
+
+    console.log("Assinatura encontrada:", JSON.stringify(assinatura, null, 2))
 
     return {
       status: assinatura.status,
       plano: assinatura.plano,
       dataProximaCobranca: assinatura.dataProximaCobranca,
+      ultimoPagamento: assinatura.ultimoPagamento,
+      barbeariaId: session.user.barbeariaId,
     }
   } catch (error) {
     console.error("Erro ao verificar assinatura:", error)
@@ -110,10 +123,63 @@ export async function cancelarAssinatura() {
       },
     })
 
+    // Revalidar o caminho para garantir que os dados sejam atualizados
+    revalidatePath("/admin/assinatura")
+
     return { success: true, message: "Assinatura cancelada com sucesso" }
   } catch (error) {
     console.error("Erro ao cancelar assinatura:", error)
     return { error: "Erro ao cancelar assinatura" }
+  }
+}
+
+// Função para forçar a atualização do status da assinatura
+export async function forcarAtualizacaoAssinatura() {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session || !session.user?.barbeariaId) {
+      return { error: "Usuário não autenticado ou não é proprietário de barbearia" }
+    }
+
+    // Buscar a assinatura diretamente do banco de dados
+    const assinatura = await prisma.assinatura.findUnique({
+      where: { barbeariaId: session.user.barbeariaId },
+    })
+
+    if (!assinatura) {
+      return { error: "Nenhuma assinatura encontrada" }
+    }
+
+    // Forçar a atualização do status para "active" se houver um pagamento registrado
+    if (assinatura.ultimoPagamento && assinatura.status !== "active") {
+      const assinaturaAtualizada = await prisma.assinatura.update({
+        where: { id: assinatura.id },
+        data: {
+          status: "active",
+        },
+      })
+
+      console.log("Assinatura forçada para ativa:", assinaturaAtualizada)
+
+      // Revalidar o caminho para garantir que os dados sejam atualizados
+      revalidatePath("/admin/assinatura")
+
+      return {
+        success: true,
+        message: "Status da assinatura atualizado com sucesso",
+        assinatura: assinaturaAtualizada,
+      }
+    }
+
+    return {
+      success: true,
+      message: "Assinatura já está com o status correto",
+      assinatura,
+    }
+  } catch (error) {
+    console.error("Erro ao forçar atualização da assinatura:", error)
+    return { error: "Erro ao atualizar status da assinatura" }
   }
 }
 

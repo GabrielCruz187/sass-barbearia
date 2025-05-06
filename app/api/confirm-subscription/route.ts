@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import prisma from "@/lib/prisma"
+import { revalidatePath } from "next/cache"
 
 // Inicializar o Stripe com a chave secreta
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+})
 
 export async function POST(req: Request) {
   try {
@@ -34,7 +37,7 @@ export async function POST(req: Request) {
         : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 365 dias para anual
 
     // Atualizar o status da assinatura
-    await prisma.assinatura.update({
+    const assinaturaAtualizada = await prisma.assinatura.update({
       where: { id: barbearia.assinatura.id },
       data: {
         status: "active",
@@ -45,7 +48,12 @@ export async function POST(req: Request) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    console.log("Assinatura atualizada com sucesso:", assinaturaAtualizada)
+
+    // Revalidar o caminho para garantir que os dados sejam atualizados
+    revalidatePath("/admin/assinatura")
+
+    return NextResponse.json({ success: true, assinatura: assinaturaAtualizada })
   } catch (error) {
     console.error("Erro ao confirmar assinatura:", error)
     return NextResponse.json(
@@ -54,3 +62,4 @@ export async function POST(req: Request) {
     )
   }
 }
+
