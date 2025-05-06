@@ -68,8 +68,8 @@ export function GameWheel({ isSpinning, premios = [], selectedPrizeIndex = -1, o
         ctx.rotate(startAngle + sliceAngle / 2)
         ctx.textAlign = "right"
         ctx.fillStyle = "#000"
-        ctx.font = "bold 16px Arial"
-        ctx.fillText(loadedPremios[i], radius - 20, 5)
+        ctx.font = "bold 12px Arial"
+        ctx.fillText(loadedPremios[i], radius - 15, 5)
         ctx.restore()
       }
 
@@ -138,15 +138,21 @@ export function GameWheel({ isSpinning, premios = [], selectedPrizeIndex = -1, o
 
   return (
     <div className="relative w-full max-w-sm mx-auto">
+      {/* Indicador */}
       <div className="absolute top-[8px] left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 z-50">
-        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 0L25 15H15L20 0Z" fill="#FF0000" />
-        </svg>
+        <img
+          src="/seta roleta.webp"
+          alt="Indicador"
+          className="w-10 h-10"
+        />
       </div>
-
+  
+      {/* Roleta */}
       <div className="bg-white rounded-full overflow-hidden relative border-8 border-gradient-to-r from-yellow-400 via-orange-500 to-red-600 shadow-lg">
         <canvas ref={canvasRef} width={300} height={300} className="w-full h-full" />
       </div>
     </div>
-  )
+  );
+  
 }
+

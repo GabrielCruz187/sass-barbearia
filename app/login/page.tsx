@@ -127,9 +127,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <div className="bg-gray-800 p-3 rounded-full">
-              <Scissors className="h-8 w-8 text-white" />
-            </div>
+          <div className="flex justify-center">
+            <img src="/logo.webp" alt="Logo" className="w-24" />
+          </div>
           </div>
           <CardTitle className="text-2xl text-center">Entrar no Sistema</CardTitle>
           <CardDescription className="text-center">Escolha como deseja entrar no sistema</CardDescription>

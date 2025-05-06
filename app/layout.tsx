@@ -12,6 +12,10 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Prêmio Barbershop - Jogue e Ganhe",
   description: "Sistema de premiação para barbearias",
+  // Mantendo a configuração do favicon no metadata
+  icons: {
+    icon: "/logo.png", // Caminho para o logo dentro da pasta public
+  },
 }
 
 export default function RootLayout({
@@ -21,6 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/* Definindo o favicon diretamente no <head> */}
+        <link rel="icon" href="/logo.png" type="image/png" />
+      </head>
       <body className={inter.className}>
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
