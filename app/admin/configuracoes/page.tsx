@@ -61,6 +61,7 @@ export default function ConfiguracoesPage() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      console.log("Arquivo selecionado:", file.name, file.size)
       const reader = new FileReader()
       reader.onload = (e) => {
         setLogoPreview(e.target?.result as string)
@@ -74,7 +75,15 @@ export default function ConfiguracoesPage() {
     setSaving(true)
 
     try {
-      const result = await atualizarConfiguracoes(new FormData(e.currentTarget))
+      // Criar um novo FormData para garantir que o arquivo seja incluído corretamente
+      const formData = new FormData(e.currentTarget)
+
+      // Se houver um arquivo selecionado, garantir que ele seja incluído no FormData
+      if (fileInputRef.current?.files?.[0]) {
+        formData.set("logo", fileInputRef.current.files[0])
+      }
+
+      const result = await atualizarConfiguracoes(formData)
 
       if (result.error) {
         toast({

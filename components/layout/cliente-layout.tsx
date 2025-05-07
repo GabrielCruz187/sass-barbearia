@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import type { Session } from "next-auth"
 
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
@@ -121,6 +120,10 @@ export function ClienteLayout({ children }: ClienteLayoutProps) {
               src={barbeariaInfo.logoUrl || "/placeholder.svg"}
               alt={barbeariaInfo.nome}
               className="h-6 w-6 rounded-full object-cover mr-2"
+              onError={(e) => {
+                console.error("Erro ao carregar logo:", e)
+                ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=24&width=24"
+              }}
             />
           ) : (
             <Scissors className="h-6 w-6 text-white mr-2" />

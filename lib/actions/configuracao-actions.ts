@@ -29,6 +29,11 @@ export async function atualizarConfiguracoes(formData: FormData) {
 
     const logoFile = formData.get("logo") as File
 
+    console.log(
+      "Logo recebido no server action:",
+      logoFile ? { name: logoFile.name, size: logoFile.size, type: logoFile.type } : "Nenhum arquivo",
+    )
+
     // Atualizar dados da barbearia
     const dadosAtualizacao: any = {
       nome,
@@ -42,11 +47,17 @@ export async function atualizarConfiguracoes(formData: FormData) {
 
     // Se enviou um novo logo, fazer upload
     if (logoFile && logoFile.size > 0) {
-      const blob = await put(`logos/${barbeariaId}/${logoFile.name}`, logoFile, {
-        access: "public",
-      })
-
-      dadosAtualizacao.logoUrl = blob.url
+      try {
+        console.log("Iniciando upload do logo para Vercel Blob")
+        const blob = await put(`logos/${barbeariaId}/${logoFile.name}`, logoFile, {
+          access: "public",
+        })
+        console.log("Upload concluído com sucesso:", blob.url)
+        dadosAtualizacao.logoUrl = blob.url
+      } catch (uploadError) {
+        console.error("Erro no upload do logo:", uploadError)
+        return { error: "Erro ao fazer upload do logo" }
+      }
     }
 
     // Atualizar barbearia

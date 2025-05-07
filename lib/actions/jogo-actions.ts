@@ -114,7 +114,7 @@ export async function verificarJogoAtivo() {
             nome: jogoNoMesAtual.barbearia.nome,
             whatsapp: jogoNoMesAtual.barbearia.whatsapp,
             mensagemMarketing: jogoNoMesAtual.barbearia.mensagemMarketing,
-            logoUrl: jogoNoMesAtual.barbearia.logoUrl,
+            logoUrl: jogoNoMesAtual.barbearia.logoUrl || null,
           },
         },
       }
@@ -366,7 +366,7 @@ export async function realizarJogo() {
           nome: novoJogo.barbearia.nome,
           whatsapp: novoJogo.barbearia.whatsapp,
           mensagemMarketing: novoJogo.barbearia.mensagemMarketing,
-          logoUrl: novoJogo.barbearia.logoUrl,
+          logoUrl: novoJogo.barbearia.logoUrl || null,
         },
         dataExpiracao: novoJogo.dataExpiracao,
       },
@@ -428,4 +428,3 @@ export async function resgatarPremio(jogoId: string) {
     return { error: "Erro ao resgatar prêmio" }
   }
 }
-

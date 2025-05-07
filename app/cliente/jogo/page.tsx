@@ -266,13 +266,23 @@ export default function JogoPage() {
           <Card className="bg-white/90 backdrop-blur-sm shadow-xl">
             <CardContent className="p-6 flex flex-col items-center">
               <div className="w-32 h-32 mb-6 relative">
-                <Image
-                  src="/placeholder.svg?height=128&width=128"
-                  alt="Logo da Barbearia"
-                  width={128}
-                  height={128}
-                  className="rounded-full object-cover"
-                />
+                {jogoAtual?.barbearia.logoUrl ? (
+                  <Image
+                    src={jogoAtual.barbearia.logoUrl || "/placeholder.svg"}
+                    alt="Logo da Barbearia"
+                    width={128}
+                    height={128}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src="/placeholder.svg?height=128&width=128"
+                    alt="Logo da Barbearia"
+                    width={128}
+                    height={128}
+                    className="rounded-full object-cover"
+                  />
+                )}
               </div>
 
               <h2 className="text-2xl font-bold text-center mb-2">Gire a Roleta e Ganhe!</h2>
@@ -439,5 +449,3 @@ export default function JogoPage() {
     </AnimatePresence>
   )
 }
-
-
