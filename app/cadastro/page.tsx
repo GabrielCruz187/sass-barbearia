@@ -257,14 +257,8 @@ export default function CadastroPage() {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="mode-teste"
-                    checked={modeTeste}
-                    onCheckedChange={(checked) => setModeTeste(checked === true)}
-                  />
-                  <Label htmlFor="mode-teste" className="text-sm">
-                    Modo de teste (sem cobrança)
-                  </Label>
+                  
+               
                 </div>
 
                 {!modeTeste && (

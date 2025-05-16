@@ -276,7 +276,7 @@ export default function JogoPage() {
                   />
                 ) : (
                   <Image
-                    src="/placeholder.svg?height=128&width=128"
+                    src={jogoAtual.barbearia.logoUrl || "/placeholder.svg"}
                     alt="Logo da Barbearia"
                     width={128}
                     height={128}
