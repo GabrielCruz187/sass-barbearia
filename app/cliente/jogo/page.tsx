@@ -275,13 +275,15 @@ export default function JogoPage() {
                     className="rounded-full object-cover"
                   />
                 ) : (
+           
                   <Image
-                    src={jogoAtual.barbearia.logoUrl || "/placeholder.svg"}
+                    src="/placeholder.svg?height=128&width=128"
                     alt="Logo da Barbearia"
                     width={128}
                     height={128}
                     className="rounded-full object-cover"
                   />
+   
                 )}
               </div>
 

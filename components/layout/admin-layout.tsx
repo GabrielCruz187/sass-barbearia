@@ -163,7 +163,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   )
 
   const renderSidebar = () => (
-    <div className="w-64 bg-purple-900 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
+    <div className="w-64 bg-gray-800 text-white p-4 hidden md:flex md:flex-col h-screen fixed">
       <div className="flex items-center gap-2 mb-8">
         {loading ? (
           <Skeleton className="h-6 w-6 rounded-full bg-white/20" />
@@ -206,7 +206,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const renderMobileHeader = () => (
     <div
-      className="md:hidden bg-purple-900 text-white p-4 fixed top-0 left-0 right-0 z-10 flex items-center justify-between"
+      className="md:hidden bg-gray-800 text-white p-4 fixed top-0 left-0 right-0 z-10 flex items-center justify-between"
       style={{ background: `var(--cor-primaria)` }}
     >
       <div className="flex items-center gap-2">

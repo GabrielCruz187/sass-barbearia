@@ -10,11 +10,11 @@ import { ColorProvider } from "@/components/color-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Prêmio Barbershop - Jogue e Ganhe",
+  title: "BarberSpin - Jogue e Ganhe",
   description: "Sistema de premiação para barbearias",
   // Mantendo a configuração do favicon no metadata
   icons: {
-    icon: "/logo.png", // Caminho para o logo dentro da pasta public
+    icon: "/logo.webp", // Caminho para o logo dentro da pasta public
   },
 }
 

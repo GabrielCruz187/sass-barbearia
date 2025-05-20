@@ -54,7 +54,7 @@ export function GameWheel({ isSpinning, premios = [], selectedPrizeIndex = -1, o
         const startAngle = angle + i * sliceAngle
         const endAngle = startAngle + sliceAngle
 
-        const colors = ["#4169E1", "#FFD700", "#B22222", "#28A745"] // Azul, Amarelo, Vermelho, Verde
+        const colors = ["#CFAE63", "#000000", "#CFAE63", "#000000"] // Azul, Amarelo, Vermelho, Verde
         ctx.fillStyle = colors[i % colors.length]
         ctx.beginPath()
         ctx.moveTo(centerX, centerY)
@@ -67,7 +67,7 @@ export function GameWheel({ isSpinning, premios = [], selectedPrizeIndex = -1, o
         ctx.translate(centerX, centerY)
         ctx.rotate(startAngle + sliceAngle / 2)
         ctx.textAlign = "right"
-        ctx.fillStyle = "#000"
+        ctx.fillStyle = "#FFFFFF"
         ctx.font = "bold 12px Arial"
         ctx.fillText(loadedPremios[i], radius - 15, 5)
         ctx.restore()
