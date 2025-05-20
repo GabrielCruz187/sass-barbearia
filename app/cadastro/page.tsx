@@ -154,9 +154,9 @@ export default function CadastroPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <div className="bg-gray-800 p-3 rounded-full">
-              <Scissors className="h-8 w-8 text-white" />
-            </div>
+            
+            <img src="/logo.webp" alt="Logo" className="w-24" />
+            
           </div>
           <CardTitle className="text-2xl text-center">Cadastre-se</CardTitle>
           <CardDescription className="text-center">Crie sua conta para começar a usar o sistema</CardDescription>

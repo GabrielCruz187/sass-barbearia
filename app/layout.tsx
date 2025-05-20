@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description: "Sistema de premiação para barbearias",
   // Mantendo a configuração do favicon no metadata
   icons: {
-    icon: "/logo.webp", // Caminho para o logo dentro da pasta public
+    icon: "/favicon.ico", // Caminho para o logo dentro da pasta public
   },
 }
 
@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {/* Definindo o favicon diretamente no <head> */}
-        <link rel="icon" href="/logo.webp"  type="image/webp"  />
+        <link rel="icon" href="/favicon.ico"   />
       </head>
       <body className={inter.className}>
         <SessionProvider>
