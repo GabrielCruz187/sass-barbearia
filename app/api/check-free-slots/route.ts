@@ -3,15 +3,22 @@ import prisma from "@/lib/prisma"
 
 export async function GET() {
   try {
-    // Contar quantas barbearias já estão com assinatura ativa
-    const assinaturasAtivas = await prisma.assinatura.count({
+    console.log("API check-free-slots: Verificando vagas gratuitas disponíveis")
+
+    // Contar quantas barbearias já estão com assinatura ativa e plano gratuito
+    const assinaturasGratuitasAtivas = await prisma.assinatura.count({
       where: {
         status: "active",
+        plano: "gratuito",
       },
     })
 
+    console.log("API check-free-slots: Assinaturas gratuitas ativas encontradas:", assinaturasGratuitasAtivas)
+
     // Verificar se ainda há vagas gratuitas disponíveis (limite de 2)
-    const freeSlotAvailable = assinaturasAtivas < 2
+    const freeSlotAvailable = assinaturasGratuitasAtivas < 2
+
+    console.log("API check-free-slots: Vagas gratuitas disponíveis:", freeSlotAvailable)
 
     return NextResponse.json({ freeSlotAvailable })
   } catch (error) {

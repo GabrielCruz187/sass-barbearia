@@ -43,8 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Barbearia já possui uma assinatura ativa" }, { status: 400 })
     }
 
-    // Definir o valor com base no plano
-    const amount = plan === "monthly" ? 100 : 200 // R$1,00 ou R$2,00 em centavos para teste
+     const amount = plan === "monthly" ? 19900 : 180000 // R$199,00 ou R$1.800,00 em centavos
     const planName = plan === "monthly" ? "mensal" : "anual"
 
     // Criar ou recuperar um cliente no Stripe
@@ -119,6 +118,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-
 
 

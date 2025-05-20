@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {/* Definindo o favicon diretamente no <head> */}
-        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="icon" href="/logo.webp"  type="image/webp"  />
       </head>
       <body className={inter.className}>
         <SessionProvider>

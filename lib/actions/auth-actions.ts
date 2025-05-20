@@ -160,4 +160,3 @@ export async function cadastrarCliente(formData: FormData) {
     return { error: `Erro ao cadastrar usuário: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
-

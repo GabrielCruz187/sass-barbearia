@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,12 @@ export default function CheckoutPage() {
   const mudarPlano = searchParams.get("mudarPlano") === "true"
   const [plan, setPlan] = useState<"monthly" | "annual">("monthly")
 
+  // Usar refs para controlar o estado de inicialização e evitar loops
+  const initializedRef = useRef(false)
+  const checkingFreeSlotRef = useRef(false)
+  const loadingBarbeariaRef = useRef(false)
+  const activatingFreeRef = useRef(false)
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [clientSecret, setClientSecret] = useState("")
@@ -33,16 +39,13 @@ export default function CheckoutPage() {
   const [barbearia, setBarbearia] = useState<any>(null)
   const [sessionBarbeariaId, setSessionBarbeariaId] = useState<string | null>(null)
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false)
+  const [pageInitialized, setPageInitialized] = useState(false)
 
-  // No início da função CheckoutPage
-  console.log("Parâmetros de URL:", {
-    barbeariaId: searchParams.get("barbeariaId"),
-    success: searchParams.get("success"),
-    mudarPlano: searchParams.get("mudarPlano"),
-  })
-
-  // Obter o ID da barbearia da sessão
+  // Obter o ID da barbearia da sessão - executado apenas uma vez
   useEffect(() => {
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     const getSessionInfo = async () => {
       try {
         const response = await fetch("/api/auth/session")
@@ -52,20 +55,29 @@ export default function CheckoutPage() {
           console.log("ID da barbearia na sessão:", session.user.barbeariaId)
           setSessionBarbeariaId(session.user.barbeariaId)
         }
+
+        // Marcar a página como inicializada após obter a sessão
+        setPageInitialized(true)
       } catch (error) {
         console.error("Erro ao obter informações da sessão:", error)
+        setPageInitialized(true)
       }
     }
 
     getSessionInfo()
   }, [])
 
+  // Verificar vagas gratuitas - executado apenas uma vez após obter a sessão
   useEffect(() => {
-    // Verificar se ainda há vagas gratuitas disponíveis
+    if (!pageInitialized || checkingFreeSlotRef.current) return
+    checkingFreeSlotRef.current = true
+
     const checkFreeSlots = async () => {
       try {
+        console.log("Verificando vagas gratuitas disponíveis...")
         const response = await fetch("/api/check-free-slots")
         const data = await response.json()
+        console.log("Resposta da verificação de vagas gratuitas:", data)
         setFreeSlotAvailable(data.freeSlotAvailable)
       } catch (error) {
         console.error("Erro ao verificar vagas gratuitas:", error)
@@ -74,44 +86,27 @@ export default function CheckoutPage() {
     }
 
     checkFreeSlots()
-  }, [])
+  }, [pageInitialized])
 
+  // Verificar redirecionamento - executado apenas uma vez após obter a sessão
   useEffect(() => {
-    // Log para depuração
-    console.log("Checkout page - barbeariaId:", barbeariaId)
-    console.log("Checkout page - sessionBarbeariaId:", sessionBarbeariaId)
-    console.log("Checkout page - success:", success)
-    console.log("Checkout page - canceled:", canceled)
+    if (!pageInitialized) return
 
     // Se não tiver barbeariaId, redirecionar para a página de cadastro
     // Mas apenas se não estiver em um estado de sucesso ou cancelamento
     if (!barbeariaId && !sessionBarbeariaId && !success && !canceled) {
-      // Verificar se o usuário está autenticado
-      const checkSession = async () => {
-        try {
-          // Tentar obter a sessão do usuário
-          const response = await fetch("/api/auth/session")
-          const session = await response.json()
-
-          // Se o usuário estiver autenticado e tiver um barbeariaId, não redirecionar
-          if (session && session.user && session.user.barbeariaId) {
-            console.log("Usuário autenticado, não redirecionando")
-            return
-          }
-
-          console.log("Redirecionando para /cadastro por falta de barbeariaId")
-          router.push("/cadastro")
-        } catch (error) {
-          console.error("Erro ao verificar sessão:", error)
-          router.push("/cadastro")
-        }
-      }
-
-      checkSession()
+      console.log("Redirecionando para /cadastro por falta de barbeariaId")
+      router.push("/cadastro")
     }
-  }, [barbeariaId, sessionBarbeariaId, router, success, canceled])
+  }, [barbeariaId, sessionBarbeariaId, router, success, canceled, pageInitialized])
 
+  // Carregar informações da barbearia - executado apenas uma vez após obter a sessão
   useEffect(() => {
+    if (!pageInitialized || loadingBarbeariaRef.current) return
+    if (!barbeariaId && !sessionBarbeariaId) return
+
+    loadingBarbeariaRef.current = true
+
     const carregarBarbearia = async () => {
       // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
       const idToUse = sessionBarbeariaId || barbeariaId
@@ -164,12 +159,13 @@ export default function CheckoutPage() {
       }
     }
 
-    if (barbeariaId || sessionBarbeariaId) {
-      carregarBarbearia()
-    }
-  }, [barbeariaId, sessionBarbeariaId, router, mudarPlano, toast])
+    carregarBarbearia()
+  }, [barbeariaId, sessionBarbeariaId, router, mudarPlano, toast, pageInitialized])
 
   const createSubscription = async () => {
+    // Evitar múltiplos cliques
+    if (isCreatingSubscription) return
+
     // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
     const idToUse = sessionBarbeariaId || barbeariaId
 
@@ -237,11 +233,16 @@ export default function CheckoutPage() {
   }
 
   const handleActivateFree = async () => {
+    // Evitar múltiplos cliques e loops
+    if (loading || activatingFreeRef.current) return
+    activatingFreeRef.current = true
+
     // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
     const idToUse = sessionBarbeariaId || barbeariaId
 
     if (!idToUse) {
       setError("ID da barbearia não fornecido")
+      activatingFreeRef.current = false
       return
     }
 
@@ -249,6 +250,8 @@ export default function CheckoutPage() {
     setError("")
 
     try {
+      console.log("Ativando plano gratuito para barbearia:", idToUse)
+
       const response = await fetch("/api/activate-free-plan", {
         method: "POST",
         headers: {
@@ -262,10 +265,14 @@ export default function CheckoutPage() {
       const data = await response.json()
 
       if (data.error) {
+        console.error("Erro ao ativar plano gratuito:", data.error)
         setError(data.error)
         setLoading(false)
+        activatingFreeRef.current = false
         return
       }
+
+      console.log("Plano gratuito ativado com sucesso, redirecionando...")
 
       // Redirecionar para a página de sucesso
       router.push(`/checkout?success=true`)
@@ -273,6 +280,7 @@ export default function CheckoutPage() {
       console.error("Erro ao ativar plano gratuito:", error)
       setError("Ocorreu um erro ao ativar o plano gratuito. Por favor, tente novamente.")
       setLoading(false)
+      activatingFreeRef.current = false
     }
   }
 
@@ -495,10 +503,17 @@ export default function CheckoutPage() {
                   <Button
                     onClick={handleActivateFree}
                     className="flex-1"
-                    disabled={loading}
+                    disabled={loading || activatingFreeRef.current}
                     style={{ backgroundColor: "var(--cor-primaria)" }}
                   >
-                    {loading ? "Ativando..." : "Ativar Gratuitamente"}
+                    {loading ? (
+                      <span className="flex items-center">
+                        <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
+                        Ativando...
+                      </span>
+                    ) : (
+                      "Ativar Gratuitamente"
+                    )}
                   </Button>
                 ) : (
                   <Button
@@ -568,8 +583,6 @@ async function getBarbeariaInfo(barbeariaId: string) {
     return { success: false, error: "Erro ao buscar barbearia" }
   }
 }
-
-
 
 
 

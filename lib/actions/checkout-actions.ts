@@ -90,6 +90,31 @@ export async function verificarAssinatura() {
   }
 }
 
+// Função para verificar vagas gratuitas disponíveis
+export async function verificarVagasGratuitas() {
+  try {
+    // Contar quantas barbearias já estão com assinatura ativa e plano gratuito
+    const assinaturasGratuitasAtivas = await prisma.assinatura.count({
+      where: {
+        status: "active",
+        plano: "gratuito",
+      },
+    })
+
+    // Verificar se ainda há vagas gratuitas disponíveis (limite de 2)
+    const vagasDisponiveis = Math.max(0, 2 - assinaturasGratuitasAtivas)
+
+    return {
+      success: true,
+      vagasDisponiveis,
+      limiteAtingido: vagasDisponiveis === 0,
+    }
+  } catch (error) {
+    console.error("Erro ao verificar vagas gratuitas:", error)
+    return { error: "Erro ao verificar vagas gratuitas disponíveis" }
+  }
+}
+
 // Função para cancelar assinatura
 export async function cancelarAssinatura() {
   try {
@@ -182,4 +207,3 @@ export async function forcarAtualizacaoAssinatura() {
     return { error: "Erro ao atualizar status da assinatura" }
   }
 }
-
