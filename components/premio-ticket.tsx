@@ -45,6 +45,9 @@ export function PremioTicket({
     }
   }, [tituloPremio, codigoPremio, telefone])
 
+  // Criar o link do WhatsApp para o botão
+  const whatsappLink = `https://wa.me/${telefone}?text=Olá! Vim resgatar meu prêmio: ${tituloPremio} (código: ${codigoPremio})`
+
   return (
     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 premio-ticket">
       <div className="flex flex-col items-center">
@@ -67,6 +70,29 @@ export function PremioTicket({
           <div className="flex flex-col items-center">
             <canvas ref={qrCodeRef} className="mb-1" />
             <p className="text-xs text-center text-gray-500">Escaneie para resgatar</p>
+
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-message-circle"
+              >
+                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+              </svg>
+              Abrir WhatsApp
+            </a>
           </div>
         </div>
 

@@ -228,7 +228,7 @@ export default function JogoPage() {
       navigator
         .share({
           title: `Meu prêmio: ${jogoAtual.premio.titulo}`,
-          text: `Ganhei um prêmio na ${jogoAtual.barbearia.nome}: ${jogoAtual.premio.titulo} (${jogoAtual.premio.codigo})`,
+          text: `Ganhei um prêmio na ${jogoAtual.barbearia.nome}: ${jogoAtual.premio.titulo} (${jogoAtual.premio.codigo}). Posso resgatar pelo WhatsApp: https://wa.me/${jogoAtual.barbearia.whatsapp.replace(/\D/g, "")}`,
         })
         .catch((error) => {
           console.log("Erro ao compartilhar", error)
@@ -275,7 +275,6 @@ export default function JogoPage() {
                     className="rounded-full object-cover"
                   />
                 ) : (
-           
                   <Image
                     src="/placeholder.svg?height=128&width=128"
                     alt="Logo da Barbearia"
@@ -283,7 +282,6 @@ export default function JogoPage() {
                     height={128}
                     className="rounded-full object-cover"
                   />
-   
                 )}
               </div>
 
