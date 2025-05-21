@@ -2,6 +2,7 @@
 
 import { hash } from "bcrypt"
 import prisma from "@/lib/prisma"
+import { isEmailValid } from "@/lib/email-validator"
 
 // Cadastrar nova barbearia
 export async function cadastrarBarbearia(formData: FormData) {
@@ -13,6 +14,12 @@ export async function cadastrarBarbearia(formData: FormData) {
     const senha = formData.get("senha") as string
     const endereco = (formData.get("endereco") as string) || ""
     const modeTeste = formData.get("modeTeste") === "true"
+
+    // Verificar se o email é válido
+    const emailValido = await isEmailValid(email)
+    if (!emailValido) {
+      return { error: "O email fornecido parece não existir ou não é válido. Por favor, use um email real." }
+    }
 
     // Verificar se o email já está em uso
     const barbeariaExistente = await prisma.barbearia.findUnique({
@@ -113,6 +120,12 @@ export async function cadastrarCliente(formData: FormData) {
     const barbeariaId = formData.get("barbeariaId") as string
 
     console.log("Dados do cliente:", { nome, email, telefone, barbeariaId })
+
+    // Verificar se o email é válido
+    const emailValido = await isEmailValid(email)
+    if (!emailValido) {
+      return { error: "O email fornecido parece não existir ou não é válido. Por favor, use um email real." }
+    }
 
     // Verificar se a barbearia existe
     const barbearia = await prisma.barbearia.findUnique({

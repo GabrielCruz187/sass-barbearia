@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Scissors, AlertTriangle, CreditCard } from 'lucide-react'
+import { AlertTriangle, CreditCard, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { cadastrarBarbearia, cadastrarCliente } from "@/lib/actions/auth-actions"
 import { listarBarbearias } from "@/lib/actions/barbearia-actions"
 
@@ -34,6 +33,14 @@ export default function CadastroPage() {
   const [selectedBarbearia, setSelectedBarbearia] = useState("")
   const [apiError, setApiError] = useState("")
   const [modeTeste, setModeTeste] = useState(false)
+
+  // Estados para validação de email
+  const [clientEmail, setClientEmail] = useState("")
+  const [adminEmail, setAdminEmail] = useState("")
+  const [validatingEmail, setValidatingEmail] = useState(false)
+  const [emailValid, setEmailValid] = useState<boolean | null>(null)
+  const [emailMessage, setEmailMessage] = useState("")
+  const emailTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // Carregar lista de barbearias disponíveis usando Server Action
@@ -70,10 +77,74 @@ export default function CadastroPage() {
     }
   }, [activeTab])
 
+  // Função para validar email
+  const validateEmail = async (email: string) => {
+    if (!email) {
+      setEmailValid(null)
+      setEmailMessage("")
+      return
+    }
+
+    // Limpar timeout anterior se existir
+    if (emailTimeoutRef.current) {
+      clearTimeout(emailTimeoutRef.current)
+    }
+
+    // Definir um timeout para não fazer muitas requisições enquanto o usuário digita
+    emailTimeoutRef.current = setTimeout(async () => {
+      setValidatingEmail(true)
+      setEmailValid(null)
+      setEmailMessage("")
+
+      try {
+        const response = await fetch("/api/cadastro/validar-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        })
+
+        const data = await response.json()
+
+        if (data.valid) {
+          setEmailValid(true)
+          setEmailMessage("Email válido!")
+        } else {
+          setEmailValid(false)
+          setEmailMessage(data.error || "Email inválido ou inexistente.")
+        }
+      } catch (error) {
+        console.error("Erro ao validar email:", error)
+        setEmailValid(false)
+        setEmailMessage("Erro ao validar email. Tente novamente.")
+      } finally {
+        setValidatingEmail(false)
+      }
+    }, 800) // Aguardar 800ms após o usuário parar de digitar
+  }
+
+  // Efeito para validar email do cliente quando mudar
+  useEffect(() => {
+    validateEmail(clientEmail)
+  }, [clientEmail])
+
+  // Efeito para validar email do admin quando mudar
+  useEffect(() => {
+    validateEmail(adminEmail)
+  }, [adminEmail])
+
   const handleClientRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setError("")
+
+    // Verificar se o email é válido antes de prosseguir
+    if (emailValid !== true) {
+      setError("Por favor, use um email válido e existente.")
+      setLoading(false)
+      return
+    }
 
     try {
       const formData = new FormData(e.currentTarget)
@@ -110,6 +181,13 @@ export default function CadastroPage() {
     e.preventDefault()
     setLoading(true)
     setError("")
+
+    // Verificar se o email é válido antes de prosseguir
+    if (emailValid !== true) {
+      setError("Por favor, use um email válido e existente.")
+      setLoading(false)
+      return
+    }
 
     try {
       const formData = new FormData(e.currentTarget)
@@ -149,14 +227,29 @@ export default function CadastroPage() {
     }
   }
 
+  // Função para renderizar o indicador de validação de email
+  const renderEmailValidation = () => {
+    if (validatingEmail) {
+      return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+    }
+
+    if (emailValid === true) {
+      return <Check className="h-4 w-4 text-green-500" />
+    }
+
+    if (emailValid === false) {
+      return <AlertTriangle className="h-4 w-4 text-red-500" />
+    }
+
+    return null
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-800 via-gray-600 to-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            
             <img src="/logo.webp" alt="Logo" className="w-24" />
-            
           </div>
           <CardTitle className="text-2xl text-center">Cadastre-se</CardTitle>
           <CardDescription className="text-center">Crie sua conta para começar a usar o sistema</CardDescription>
@@ -181,7 +274,22 @@ export default function CadastroPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="client-email">Email</Label>
-                  <Input id="client-email" name="email" type="email" placeholder="seu@email.com" required />
+                  <div className="relative">
+                    <Input
+                      id="client-email"
+                      name="email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      required
+                      value={clientEmail}
+                      onChange={(e) => setClientEmail(e.target.value)}
+                      className={`pr-10 ${emailValid === false ? "border-red-500 focus-visible:ring-red-500" : emailValid === true ? "border-green-500 focus-visible:ring-green-500" : ""}`}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">{renderEmailValidation()}</div>
+                  </div>
+                  {emailMessage && (
+                    <p className={`text-xs mt-1 ${emailValid ? "text-green-600" : "text-red-600"}`}>{emailMessage}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="client-phone">Telefone (WhatsApp)</Label>
@@ -223,7 +331,7 @@ export default function CadastroPage() {
                 <Button
                   type="submit"
                   className="w-full bg-gray-800 hover:bg-gray-700 text-white"
-                  disabled={loading || barbearias.length === 0}
+                  disabled={loading || barbearias.length === 0 || emailValid !== true}
                 >
                   {loading ? "Cadastrando..." : "Cadastrar como Cliente"}
                 </Button>
@@ -237,7 +345,22 @@ export default function CadastroPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="admin-email">Email</Label>
-                  <Input id="admin-email" name="email" type="email" placeholder="barbearia@email.com" required />
+                  <div className="relative">
+                    <Input
+                      id="admin-email"
+                      name="email"
+                      type="email"
+                      placeholder="barbearia@email.com"
+                      required
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      className={`pr-10 ${emailValid === false ? "border-red-500 focus-visible:ring-red-500" : emailValid === true ? "border-green-500 focus-visible:ring-green-500" : ""}`}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">{renderEmailValidation()}</div>
+                  </div>
+                  {emailMessage && (
+                    <p className={`text-xs mt-1 ${emailValid ? "text-green-600" : "text-red-600"}`}>{emailMessage}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="admin-phone">Telefone</Label>
@@ -256,10 +379,7 @@ export default function CadastroPage() {
                   <Input id="admin-password" name="senha" type="password" required />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  
-               
-                </div>
+                <div className="flex items-center space-x-2"></div>
 
                 {!modeTeste && (
                   <Alert className="bg-blue-50 border-blue-200">
@@ -270,7 +390,11 @@ export default function CadastroPage() {
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full bg-gray-800 hover:bg-gray-700 text-white" disabled={loading}>
+                <Button
+                  type="submit"
+                  className="w-full bg-gray-800 hover:bg-gray-700 text-white"
+                  disabled={loading || emailValid !== true}
+                >
                   {loading
                     ? "Cadastrando..."
                     : modeTeste
@@ -293,7 +417,5 @@ export default function CadastroPage() {
     </div>
   )
 }
-
-
 
 
