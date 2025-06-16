@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cadastrarBarbearia, cadastrarCliente } from "@/lib/actions/auth-actions"
 import { listarBarbearias } from "@/lib/actions/barbearia-actions"
 
@@ -33,6 +34,7 @@ export default function CadastroPage() {
   const [selectedBarbearia, setSelectedBarbearia] = useState("")
   const [apiError, setApiError] = useState("")
   const [modeTeste, setModeTeste] = useState(false)
+  const [isAssinante, setIsAssinante] = useState(false)
 
   // Estados para validação de email
   const [clientEmail, setClientEmail] = useState("")
@@ -157,6 +159,7 @@ export default function CadastroPage() {
       }
 
       formData.set("barbeariaId", selectedBarbearia)
+      formData.set("assinante", isAssinante.toString())
 
       const result = await cadastrarCliente(formData)
 
@@ -328,6 +331,29 @@ export default function CadastroPage() {
                     </div>
                   )}
                 </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="assinante"
+                    checked={isAssinante}
+                    onCheckedChange={(checked) => setIsAssinante(checked as boolean)}
+                  />
+                  <Label
+                    htmlFor="assinante"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Sou assinante desta barbearia
+                  </Label>
+                </div>
+
+                {isAssinante && (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertDescription className="text-blue-800 text-sm">
+                      Como assinante, você terá acesso a prêmios exclusivos na roleta especial!
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full bg-gray-800 hover:bg-gray-700 text-white"
@@ -417,5 +443,6 @@ export default function CadastroPage() {
     </div>
   )
 }
+
 
 

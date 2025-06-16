@@ -55,35 +55,69 @@ export async function cadastrarBarbearia(formData: FormData) {
       },
     })
 
-    // Criar prêmios padrão
+    // Criar prêmios padrão para não-assinantes
     await prisma.premio.createMany({
       data: [
         {
-          titulo: "20% de desconto",
-          descricao: "Desconto no corte + barba",
-          codigo: "DESC20CB",
+          titulo: "10% de desconto",
+          descricao: "Desconto no corte",
+          codigo: "DESC10C",
           chance: 40,
+          tipoCliente: "nao_assinante",
           barbeariaId: novaBarbearia.id,
         },
         {
-          titulo: "30% em produtos",
-          descricao: "Desconto em produtos de barba",
-          codigo: "DESC30PB",
-          chance: 30,
+          titulo: "15% em produtos",
+          descricao: "Desconto em produtos",
+          codigo: "DESC15P",
+          chance: 35,
+          tipoCliente: "nao_assinante",
           barbeariaId: novaBarbearia.id,
         },
         {
-          titulo: "20% em pomada",
-          descricao: "Desconto em pomada",
-          codigo: "DESC20POM",
+          titulo: "Brinde especial",
+          descricao: "Ganhe um brinde",
+          codigo: "BRINDE1",
           chance: 25,
+          tipoCliente: "nao_assinante",
+          barbeariaId: novaBarbearia.id,
+        },
+      ],
+    })
+
+    // Criar prêmios padrão para assinantes
+    await prisma.premio.createMany({
+      data: [
+        {
+          titulo: "30% de desconto",
+          descricao: "Desconto no corte + barba",
+          codigo: "DESC30CB",
+          chance: 30,
+          tipoCliente: "assinante",
           barbeariaId: novaBarbearia.id,
         },
         {
-          titulo: "Corte grátis",
-          descricao: "Um corte de cabelo grátis",
-          codigo: "CORTEGRATIS",
-          chance: 5,
+          titulo: "50% em produtos",
+          descricao: "Desconto em produtos premium",
+          codigo: "DESC50PP",
+          chance: 25,
+          tipoCliente: "assinante",
+          barbeariaId: novaBarbearia.id,
+        },
+        {
+          titulo: "Corte + Barba grátis",
+          descricao: "Serviço completo grátis",
+          codigo: "GRATISCB",
+          chance: 20,
+          tipoCliente: "assinante",
+          barbeariaId: novaBarbearia.id,
+        },
+        {
+          titulo: "Kit premium",
+          descricao: "Kit completo de produtos",
+          codigo: "KITPREM",
+          chance: 25,
+          tipoCliente: "assinante",
           barbeariaId: novaBarbearia.id,
         },
       ],
@@ -110,7 +144,7 @@ export async function cadastrarBarbearia(formData: FormData) {
   }
 }
 
-// Cadastrar cliente (mantido o código original)
+// Cadastrar cliente (atualizado para incluir campo assinante)
 export async function cadastrarCliente(formData: FormData) {
   try {
     const nome = formData.get("nome") as string
@@ -118,8 +152,9 @@ export async function cadastrarCliente(formData: FormData) {
     const telefone = formData.get("telefone") as string
     const senha = formData.get("senha") as string
     const barbeariaId = formData.get("barbeariaId") as string
+    const assinante = formData.get("assinante") === "true"
 
-    console.log("Dados do cliente:", { nome, email, telefone, barbeariaId })
+    console.log("Dados do cliente:", { nome, email, telefone, barbeariaId, assinante })
 
     // Verificar se o email é válido
     const emailValido = await isEmailValid(email)
@@ -162,6 +197,7 @@ export async function cadastrarCliente(formData: FormData) {
         senha: senhaHash,
         role: "CLIENTE",
         barbeariaId,
+        assinante,
       },
     })
 
@@ -173,3 +209,4 @@ export async function cadastrarCliente(formData: FormData) {
     return { error: `Erro ao cadastrar usuário: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
+

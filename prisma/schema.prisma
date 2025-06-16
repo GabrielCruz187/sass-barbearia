@@ -64,6 +64,7 @@ model Usuario {
   telefone        String
   senha           String
   role            Role      @default(CLIENTE)
+  assinante       Boolean   @default(false)
   
   // Relacionamento com barbearia
   barbeariaId     String
@@ -92,6 +93,7 @@ model Premio {
   codigo          String
   chance          Float     @default(25)
   ativo           Boolean   @default(true)
+  tipoCliente     String    @default("nao_assinante") // "assinante", "nao_assinante", "ambos"
   
   // Relacionamento com barbearia
   barbeariaId     String
@@ -144,3 +146,4 @@ model Configuracao {
   
   updatedAt       DateTime  @updatedAt
 }
+

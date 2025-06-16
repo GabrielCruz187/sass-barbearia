@@ -19,9 +19,10 @@ export async function adicionarPremio(formData: FormData) {
     const codigo = formData.get("codigo") as string
     const chanceStr = formData.get("chance") as string
     const chance = Number.parseFloat(chanceStr)
+    const tipoCliente = formData.get("tipoCliente") as string
     const barbeariaId = session.user.barbeariaId
 
-    console.log("Adicionando prêmio:", { titulo, descricao, codigo, chance, barbeariaId })
+    console.log("Adicionando prêmio:", { titulo, descricao, codigo, chance, tipoCliente, barbeariaId })
 
     if (isNaN(chance)) {
       return { error: "A chance deve ser um número válido" }
@@ -31,15 +32,16 @@ export async function adicionarPremio(formData: FormData) {
       return { error: "A chance deve ser um número entre 0 e 100" }
     }
 
-    // Verificar se a soma das chances não ultrapassa 100%
+    // Verificar se a soma das chances não ultrapassa 100% para o tipo de cliente específico
+    const whereCondition =
+      tipoCliente === "ambos" ? { barbeariaId, ativo: true } : { barbeariaId, ativo: true, tipoCliente }
+
     const premiosExistentes = await prisma.premio.findMany({
-      where: {
-        barbeariaId,
-        ativo: true, // Considerar apenas prêmios ativos
-      },
+      where: whereCondition,
       select: {
         id: true,
         chance: true,
+        tipoCliente: true,
       },
     })
 
@@ -52,7 +54,7 @@ export async function adicionarPremio(formData: FormData) {
 
     if (somaChancesExistentes + chance > 100) {
       return {
-        error: `A soma das chances não pode ultrapassar 100%. Soma atual: ${somaChancesExistentes.toFixed(2)}%, disponível: ${(100 - somaChancesExistentes).toFixed(2)}%`,
+        error: `A soma das chances não pode ultrapassar 100% para ${tipoCliente === "assinante" ? "assinantes" : tipoCliente === "nao_assinante" ? "não-assinantes" : "este tipo"}. Soma atual: ${somaChancesExistentes.toFixed(2)}%, disponível: ${(100 - somaChancesExistentes).toFixed(2)}%`,
       }
     }
 
@@ -63,6 +65,7 @@ export async function adicionarPremio(formData: FormData) {
         descricao,
         codigo,
         chance,
+        tipoCliente,
         barbeariaId,
       },
     })
@@ -92,9 +95,10 @@ export async function atualizarPremio(premioId: string, formData: FormData) {
     const chanceStr = formData.get("chance") as string
     const chance = Number.parseFloat(chanceStr)
     const ativo = formData.get("ativo") === "true"
+    const tipoCliente = formData.get("tipoCliente") as string
     const barbeariaId = session.user.barbeariaId
 
-    console.log("Atualizando prêmio:", { premioId, titulo, descricao, codigo, chance, ativo, barbeariaId })
+    console.log("Atualizando prêmio:", { premioId, titulo, descricao, codigo, chance, ativo, tipoCliente, barbeariaId })
 
     if (isNaN(chance)) {
       return { error: "A chance deve ser um número válido" }
@@ -116,18 +120,18 @@ export async function atualizarPremio(premioId: string, formData: FormData) {
       return { error: "Prêmio não encontrado" }
     }
 
-    // Verificar se a soma das chances não ultrapassa 100%
+    // Verificar se a soma das chances não ultrapassa 100% para o tipo de cliente específico
+    const whereCondition =
+      tipoCliente === "ambos"
+        ? { barbeariaId, id: { not: premioId }, ativo: true }
+        : { barbeariaId, id: { not: premioId }, ativo: true, tipoCliente }
+
     const premiosExistentes = await prisma.premio.findMany({
-      where: {
-        barbeariaId,
-        id: {
-          not: premioId,
-        },
-        ativo: true, // Considerar apenas prêmios ativos
-      },
+      where: whereCondition,
       select: {
         id: true,
         chance: true,
+        tipoCliente: true,
       },
     })
 
@@ -140,7 +144,7 @@ export async function atualizarPremio(premioId: string, formData: FormData) {
 
     if (somaChancesExistentes + chance > 100) {
       return {
-        error: `A soma das chances não pode ultrapassar 100%. Soma atual: ${somaChancesExistentes.toFixed(2)}%, disponível: ${(100 - somaChancesExistentes).toFixed(2)}%`,
+        error: `A soma das chances não pode ultrapassar 100% para ${tipoCliente === "assinante" ? "assinantes" : tipoCliente === "nao_assinante" ? "não-assinantes" : "este tipo"}. Soma atual: ${somaChancesExistentes.toFixed(2)}%, disponível: ${(100 - somaChancesExistentes).toFixed(2)}%`,
       }
     }
 
@@ -155,6 +159,7 @@ export async function atualizarPremio(premioId: string, formData: FormData) {
         codigo,
         chance,
         ativo,
+        tipoCliente,
       },
     })
 

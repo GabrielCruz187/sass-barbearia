@@ -7,7 +7,7 @@ import { addDays } from "date-fns"
 import { revalidatePath } from "next/cache"
 import nodemailer from "nodemailer"
 
-// Buscar prêmios disponíveis da barbearia
+// Buscar prêmios disponíveis da barbearia baseado no tipo de cliente
 export async function buscarPremiosBarbearia() {
   try {
     const session = await getServerSession(authOptions)
@@ -18,11 +18,24 @@ export async function buscarPremiosBarbearia() {
 
     const barbeariaId = session.user.barbeariaId
 
-    // Buscar prêmios ativos da barbearia
+    // Buscar informações do usuário para saber se é assinante
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { assinante: true },
+    })
+
+    if (!usuario) {
+      return { error: "Usuário não encontrado" }
+    }
+
+    // Buscar prêmios baseado no tipo de cliente
+    const tipoCliente = usuario.assinante ? "assinante" : "nao_assinante"
+
     const premios = await prisma.premio.findMany({
       where: {
         barbeariaId,
         ativo: true,
+        OR: [{ tipoCliente: tipoCliente }, { tipoCliente: "ambos" }],
       },
       select: {
         id: true,
@@ -45,7 +58,7 @@ export async function buscarPremiosBarbearia() {
       else if (tituloLower.includes("barba")) emoji = "💈"
       else if (tituloLower.includes("desconto")) emoji = "💰"
       else if (tituloLower.includes("grátis") || tituloLower.includes("gratis")) emoji = "🏆"
-      else if (tituloLower.includes("produto")) emoji = "🧴"
+      else if (tituloLower.includes("produto") || tituloLower.includes("kit")) emoji = "🧴"
 
       return {
         ...premio,
@@ -53,7 +66,7 @@ export async function buscarPremiosBarbearia() {
       }
     })
 
-    return { success: true, premios: premiosComEmoji }
+    return { success: true, premios: premiosComEmoji, tipoCliente }
   } catch (error) {
     console.error("Erro ao buscar prêmios:", error)
     return { error: "Erro ao buscar prêmios" }
@@ -71,6 +84,16 @@ export async function verificarJogoAtivo() {
 
     const usuarioId = session.user.id
     const barbeariaId = session.user.barbeariaId
+
+    // Buscar informações do usuário para saber se é assinante
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { assinante: true },
+    })
+
+    if (!usuario) {
+      return { error: "Usuário não encontrado" }
+    }
 
     // Verificar se o usuário já jogou no mês atual
     const primeiroDiaMes = new Date()
@@ -120,11 +143,14 @@ export async function verificarJogoAtivo() {
       }
     }
 
-    // Verificar se há prêmios disponíveis
+    // Verificar se há prêmios disponíveis para o tipo de cliente
+    const tipoCliente = usuario.assinante ? "assinante" : "nao_assinante"
+
     const premios = await prisma.premio.findMany({
       where: {
         barbeariaId,
         ativo: true,
+        OR: [{ tipoCliente: tipoCliente }, { tipoCliente: "ambos" }],
       },
     })
 
@@ -132,7 +158,7 @@ export async function verificarJogoAtivo() {
       return { semPremios: true }
     }
 
-    return { podeJogar: true }
+    return { podeJogar: true, tipoCliente }
   } catch (error) {
     console.error("Erro ao verificar jogo ativo:", error)
     return { error: "Erro ao verificar jogo ativo" }
@@ -143,7 +169,7 @@ export async function verificarJogoAtivo() {
 async function enviarEmailPremio(email: string, premio: any, barbearia: any, dataExpiracao: Date) {
   try {
     // Configurar o transporter do nodemailer (use suas próprias credenciais)
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransporter({
       host: process.env.EMAIL_SERVER_HOST || "smtp.gmail.com",
       port: Number(process.env.EMAIL_SERVER_PORT) || 587,
       secure: false,
@@ -228,6 +254,16 @@ export async function realizarJogo() {
     const barbeariaId = session.user.barbeariaId
     const userEmail = session.user.email
 
+    // Buscar informações do usuário para saber se é assinante
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { assinante: true },
+    })
+
+    if (!usuario) {
+      return { error: "Usuário não encontrado" }
+    }
+
     // Verificar se o usuário já jogou no mês atual
     const primeiroDiaMes = new Date()
     primeiroDiaMes.setDate(1)
@@ -288,11 +324,14 @@ export async function realizarJogo() {
 
     const diasValidade = configuracao?.diasValidade || 30
 
-    // Obter prêmios ativos da barbearia
+    // Obter prêmios ativos da barbearia baseado no tipo de cliente
+    const tipoCliente = usuario.assinante ? "assinante" : "nao_assinante"
+
     const premios = await prisma.premio.findMany({
       where: {
         barbeariaId,
         ativo: true,
+        OR: [{ tipoCliente: tipoCliente }, { tipoCliente: "ambos" }],
       },
     })
 
@@ -354,6 +393,7 @@ export async function realizarJogo() {
     return {
       success: true,
       emailEnviado,
+      tipoCliente,
       jogo: {
         id: novoJogo.id,
         premio: {
@@ -428,3 +468,4 @@ export async function resgatarPremio(jogoId: string) {
     return { error: "Erro ao resgatar prêmio" }
   }
 }
+

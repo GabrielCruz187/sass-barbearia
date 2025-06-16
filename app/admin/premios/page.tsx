@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { adicionarPremio, atualizarPremio, excluirPremio, resetarPremios } from "@/lib/actions/premio-actions"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -31,6 +32,7 @@ interface Premio {
   codigo: string
   chance: number
   ativo: boolean
+  tipoCliente: string
 }
 
 export default function PremiosPage() {
@@ -40,7 +42,8 @@ export default function PremiosPage() {
   const [openDialog, setOpenDialog] = useState(false)
   const [editingPremio, setEditingPremio] = useState<Premio | null>(null)
   const [formError, setFormError] = useState("")
-  const [somaChances, setSomaChances] = useState(0)
+  const [somaChancesAssinantes, setSomaChancesAssinantes] = useState(0)
+  const [somaChancesNaoAssinantes, setSomaChancesNaoAssinantes] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0) // Para forçar a atualização da lista
   const [apiError, setApiError] = useState<string | null>(null)
   const [testApiResponse, setTestApiResponse] = useState<string | null>(null)
@@ -73,11 +76,23 @@ export default function PremiosPage() {
           const data = JSON.parse(altResponseText)
           setPremios(data)
 
-          // Calcular a soma das chances dos prêmios ativos
-          const premiosAtivos = data.filter((premio: Premio) => premio.ativo)
-          const soma = premiosAtivos.reduce((acc: number, premio: Premio) => acc + premio.chance, 0)
-          setSomaChances(soma)
-          console.log("Soma das chances dos prêmios ativos:", soma)
+          // Calcular a soma das chances dos prêmios ativos para assinantes e não assinantes
+          const premiosAtivosAssinantes = data.filter(
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "assinante",
+          )
+          const somaAssinantes = premiosAtivosAssinantes.reduce((acc: number, premio: Premio) => acc + premio.chance, 0)
+          setSomaChancesAssinantes(somaAssinantes)
+          console.log("Soma das chances dos prêmios ativos para assinantes:", somaAssinantes)
+
+          const premiosAtivosNaoAssinantes = data.filter(
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao-assinante",
+          )
+          const somaNaoAssinantes = premiosAtivosNaoAssinantes.reduce(
+            (acc: number, premio: Premio) => acc + premio.chance,
+            0,
+          )
+          setSomaChancesNaoAssinantes(somaNaoAssinantes)
+          console.log("Soma das chances dos prêmios ativos para não assinantes:", somaNaoAssinantes)
 
           setApiError(null)
           toast({
@@ -112,10 +127,24 @@ export default function PremiosPage() {
           console.log("Prêmios carregados da API original:", data)
           setPremios(data)
 
-          // Calcular a soma das chances dos prêmios ativos
-          const premiosAtivos = data.filter((premio: Premio) => premio.ativo)
-          const soma = premiosAtivos.reduce((acc: number, premio: Premio) => acc + premio.chance, 0)
-          setSomaChances(soma)
+          // Calcular a soma das chances dos prêmios ativos para assinantes e não assinantes
+          const premiosAtivosAssinantes = data.filter(
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "assinante",
+          )
+          const somaAssinantes = premiosAtivosAssinantes.reduce((acc: number, premio: Premio) => acc + premio.chance, 0)
+          setSomaChancesAssinantes(somaAssinantes)
+          console.log("Soma das chances dos prêmios ativos para assinantes:", somaAssinantes)
+
+          const premiosAtivosNaoAssinantes = data.filter(
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao-assinante",
+          )
+          const somaNaoAssinantes = premiosAtivosNaoAssinantes.reduce(
+            (acc: number, premio: Premio) => acc + premio.chance,
+            0,
+          )
+          setSomaChancesNaoAssinantes(somaNaoAssinantes)
+          console.log("Soma das chances dos prêmios ativos para não assinantes:", somaNaoAssinantes)
+
           return
         } else {
           console.log("API original falhou, tentando API alternativa...")
@@ -133,10 +162,24 @@ export default function PremiosPage() {
           console.log("Prêmios carregados da API alternativa:", data)
           setPremios(data)
 
-          // Calcular a soma das chances dos prêmios ativos
-          const premiosAtivos = data.filter((premio: Premio) => premio.ativo)
-          const soma = premiosAtivos.reduce((acc: number, premio: Premio) => acc + premio.chance, 0)
-          setSomaChances(soma)
+          // Calcular a soma das chances dos prêmios ativos para assinantes e não assinantes
+          const premiosAtivosAssinantes = data.filter(
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "assinante",
+          )
+          const somaAssinantes = premiosAtivosAssinantes.reduce((acc: number, premio: Premio) => acc + premio.chance, 0)
+          setSomaChancesAssinantes(somaAssinantes)
+          console.log("Soma das chances dos prêmios ativos para assinantes:", somaAssinantes)
+
+          const premiosAtivosNaoAssinantes = data.filter(
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao-assinante",
+          )
+          const somaNaoAssinantes = premiosAtivosNaoAssinantes.reduce(
+            (acc: number, premio: Premio) => acc + premio.chance,
+            0,
+          )
+          setSomaChancesNaoAssinantes(somaNaoAssinantes)
+          console.log("Soma das chances dos prêmios ativos para não assinantes:", somaNaoAssinantes)
+
           return
         } else {
           setApiError(`Erro na API alternativa: ${altResponse.status} ${altResponse.statusText}`)
@@ -374,7 +417,14 @@ export default function PremiosPage() {
                   <div className="grid gap-2">
                     <Label htmlFor="chance">
                       Chance (%) de Sorteio - Disponível:{" "}
-                      {(100 - somaChances + (editingPremio?.chance || 0)).toFixed(2)}%
+                      {(
+                        100 -
+                        (editingPremio?.tipoCliente === "assinante"
+                          ? somaChancesAssinantes
+                          : somaChancesNaoAssinantes) +
+                        (editingPremio?.chance || 0)
+                      ).toFixed(2)}
+                      %
                     </Label>
                     <Input
                       id="chance"
@@ -387,8 +437,31 @@ export default function PremiosPage() {
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      A soma das chances de todos os prêmios ativos deve ser 100%. Atual: {somaChances.toFixed(2)}%
+                      A soma das chances de todos os prêmios ativos deve ser 100%. Atual:{" "}
+                      {(editingPremio?.tipoCliente === "assinante"
+                        ? somaChancesAssinantes
+                        : somaChancesNaoAssinantes
+                      ).toFixed(2)}
+                      %
                     </p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="tipoCliente">Tipo de Cliente</Label>
+                    <Select
+                      id="tipoCliente"
+                      name="tipoCliente"
+                      defaultValue={editingPremio?.tipoCliente || "assinante"}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo de cliente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="assinante">Assinante</SelectItem>
+                        <SelectItem value="nao-assinante">Não Assinante</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {editingPremio && (
@@ -483,6 +556,7 @@ export default function PremiosPage() {
                       <TableHead>Descrição</TableHead>
                       <TableHead>Código</TableHead>
                       <TableHead className="text-center">Chance (%)</TableHead>
+                      <TableHead className="text-center">Tipo de Cliente</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -496,6 +570,17 @@ export default function PremiosPage() {
                           <code>{premio.codigo}</code>
                         </TableCell>
                         <TableCell className="text-center">{premio.chance}%</TableCell>
+                        <TableCell className="text-center">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              premio.tipoCliente === "assinante"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {premio.tipoCliente === "assinante" ? "Assinante" : "Não Assinante"}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center">
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
@@ -554,7 +639,10 @@ export default function PremiosPage() {
                       <strong>Total de Prêmios:</strong> {premios.length}
                     </p>
                     <p>
-                      <strong>Soma das Chances:</strong> {somaChances.toFixed(2)}%
+                      <strong>Soma das Chances para Assinantes:</strong> {somaChancesAssinantes.toFixed(2)}%
+                    </p>
+                    <p>
+                      <strong>Soma das Chances para Não Assinantes:</strong> {somaChancesNaoAssinantes.toFixed(2)}%
                     </p>
                   </div>
                 </div>
@@ -583,6 +671,7 @@ export default function PremiosPage() {
     </div>
   )
 }
+
 
 
 
