@@ -85,7 +85,7 @@ export default function PremiosPage() {
           console.log("Soma das chances dos prêmios ativos para assinantes:", somaAssinantes)
 
           const premiosAtivosNaoAssinantes = data.filter(
-            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao-assinante",
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao_assinante",
           )
           const somaNaoAssinantes = premiosAtivosNaoAssinantes.reduce(
             (acc: number, premio: Premio) => acc + premio.chance,
@@ -136,7 +136,7 @@ export default function PremiosPage() {
           console.log("Soma das chances dos prêmios ativos para assinantes:", somaAssinantes)
 
           const premiosAtivosNaoAssinantes = data.filter(
-            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao-assinante",
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao_assinante",
           )
           const somaNaoAssinantes = premiosAtivosNaoAssinantes.reduce(
             (acc: number, premio: Premio) => acc + premio.chance,
@@ -171,7 +171,7 @@ export default function PremiosPage() {
           console.log("Soma das chances dos prêmios ativos para assinantes:", somaAssinantes)
 
           const premiosAtivosNaoAssinantes = data.filter(
-            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao-assinante",
+            (premio: Premio) => premio.ativo && premio.tipoCliente === "nao_assinante",
           )
           const somaNaoAssinantes = premiosAtivosNaoAssinantes.reduce(
             (acc: number, premio: Premio) => acc + premio.chance,
@@ -448,18 +448,13 @@ export default function PremiosPage() {
 
                   <div className="grid gap-2">
                     <Label htmlFor="tipoCliente">Tipo de Cliente</Label>
-                    <Select
-                      id="tipoCliente"
-                      name="tipoCliente"
-                      defaultValue={editingPremio?.tipoCliente || "assinante"}
-                      required
-                    >
+                    <Select name="tipoCliente" defaultValue={editingPremio?.tipoCliente || "nao_assinante"}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de cliente" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="assinante">Assinante</SelectItem>
-                        <SelectItem value="nao-assinante">Não Assinante</SelectItem>
+                        <SelectItem value="nao_assinante">Não Assinante</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -467,7 +462,7 @@ export default function PremiosPage() {
                   {editingPremio && (
                     <div className="flex items-center gap-2">
                       <Label htmlFor="ativo">Ativo</Label>
-                      <Switch id="ativo" name="ativo" defaultChecked={editingPremio.ativo} value="true" />
+                      <Switch id="ativo" name="ativo" defaultChecked={editingPremio.ativo} />
                     </div>
                   )}
                 </div>
@@ -671,6 +666,9 @@ export default function PremiosPage() {
     </div>
   )
 }
+
+
+
 
 
 
