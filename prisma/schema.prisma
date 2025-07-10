@@ -42,13 +42,14 @@ model Assinatura {
   barbeariaId         String    @unique
   barbearia           Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   
-  status              String    @default("pending") // pending, active, canceled
-  plano               String    @default("mensal")
+  status              String    @default("pending") // pending, active, canceled, expired
+  plano               String    @default("mensal") // mensal, anual, gratuito, trial
   stripeCustomerId    String?   @unique
   stripeSubscriptionId String?  @unique
   stripePaymentIntentId String?
   
   dataInicio         DateTime?
+  dataFim            DateTime? // Data de fim do trial ou assinatura
   ultimoPagamento    DateTime?
   dataProximaCobranca DateTime?
   
@@ -146,4 +147,5 @@ model Configuracao {
   
   updatedAt       DateTime  @updatedAt
 }
+
 

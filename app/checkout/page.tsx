@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, CheckCircle2, Sparkles, Info } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Sparkles, Info, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { loadStripe } from "@stripe/stripe-js"
@@ -30,11 +30,14 @@ export default function CheckoutPage() {
   const checkingFreeSlotRef = useRef(false)
   const loadingBarbeariaRef = useRef(false)
   const activatingFreeRef = useRef(false)
+  const activatingTrialRef = useRef(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [clientSecret, setClientSecret] = useState("")
   const [freeSlotAvailable, setFreeSlotAvailable] = useState(false)
+  const [trialAvailable, setTrialAvailable] = useState(false)
+  const [freeSlotMessage, setFreeSlotMessage] = useState("")
   const [isCreatingSubscription, setIsCreatingSubscription] = useState(false)
   const [barbearia, setBarbearia] = useState<any>(null)
   const [sessionBarbeariaId, setSessionBarbeariaId] = useState<string | null>(null)
@@ -79,9 +82,12 @@ export default function CheckoutPage() {
         const data = await response.json()
         console.log("Resposta da verificação de vagas gratuitas:", data)
         setFreeSlotAvailable(data.freeSlotAvailable)
+        setTrialAvailable(data.trialAvailable)
+        setFreeSlotMessage(data.message || "")
       } catch (error) {
         console.error("Erro ao verificar vagas gratuitas:", error)
         setFreeSlotAvailable(false)
+        setTrialAvailable(true)
       }
     }
 
@@ -284,6 +290,58 @@ export default function CheckoutPage() {
     }
   }
 
+  const handleActivateTrial = async () => {
+    // Evitar múltiplos cliques e loops
+    if (loading || activatingTrialRef.current) return
+    activatingTrialRef.current = true
+
+    // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+    const idToUse = sessionBarbeariaId || barbeariaId
+
+    if (!idToUse) {
+      setError("ID da barbearia não fornecido")
+      activatingTrialRef.current = false
+      return
+    }
+
+    setLoading(true)
+    setError("")
+
+    try {
+      console.log("Ativando trial para barbearia:", idToUse)
+
+      const response = await fetch("/api/activate-trial", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          barbeariaId: idToUse,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.error) {
+        console.error("Erro ao ativar trial:", data.error)
+        setError(data.error)
+        setLoading(false)
+        activatingTrialRef.current = false
+        return
+      }
+
+      console.log("Trial ativado com sucesso, redirecionando...")
+
+      // Redirecionar para a página de sucesso
+      router.push(`/checkout?success=true`)
+    } catch (error) {
+      console.error("Erro ao ativar trial:", error)
+      setError("Ocorreu um erro ao ativar o período de teste. Por favor, tente novamente.")
+      setLoading(false)
+      activatingTrialRef.current = false
+    }
+  }
+
   const handleCancel = () => {
     // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
     const idToUse = sessionBarbeariaId || barbeariaId
@@ -299,8 +357,8 @@ export default function CheckoutPage() {
             <div className="flex justify-center mb-4 text-green-500">
               <CheckCircle2 size={48} />
             </div>
-            <CardTitle className="text-center">Pagamento Confirmado!</CardTitle>
-            <CardDescription className="text-center">Sua assinatura foi ativada com sucesso.</CardDescription>
+            <CardTitle className="text-center">Ativação Confirmada!</CardTitle>
+            <CardDescription className="text-center">Sua barbearia foi ativada com sucesso.</CardDescription>
           </CardHeader>
           <CardContent>
             <Alert className="bg-green-50 border-green-200 mb-4">
@@ -390,16 +448,24 @@ export default function CheckoutPage() {
         <CardHeader>
           <CardTitle className="text-center">{mudarPlano ? "Alterar Plano" : "Escolha seu Plano"}</CardTitle>
           <CardDescription className="text-center">
-            {mudarPlano ? "Escolha um novo plano para sua barbearia" : "Complete o pagamento para ativar sua barbearia"}
+            {mudarPlano ? "Escolha um novo plano para sua barbearia" : "Ative sua barbearia e comece a usar"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {freeSlotAvailable && !mudarPlano && (
+            <Alert className="mb-6 bg-green-50 border-green-200">
+              <Sparkles className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <span className="font-bold">🎉 Parabéns!</span> {freeSlotMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {trialAvailable && !freeSlotAvailable && !mudarPlano && (
             <Alert className="mb-6 bg-blue-50 border-blue-200">
-              <Sparkles className="h-4 w-4 text-blue-600" />
+              <Clock className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800">
-                <span className="font-bold">Parabéns!</span> Você é um dos primeiros a se cadastrar e pode ativar o
-                plano gratuitamente!
+                <span className="font-bold">⏰ Teste Grátis!</span> {freeSlotMessage}
               </AlertDescription>
             </Alert>
           )}
@@ -412,7 +478,7 @@ export default function CheckoutPage() {
                 {barbearia.assinatura.plano === "mensal"
                   ? "Mensal (R$199,00/mês)"
                   : barbearia.assinatura.plano === "anual"
-                    ? "Anual (R$150,00/mês)"
+                    ? "Anual (R$119,99/mês)"
                     : barbearia.assinatura.plano}
               </AlertDescription>
             </Alert>
@@ -457,11 +523,11 @@ export default function CheckoutPage() {
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">Plano Anual</span>
                       <div className="text-right">
-                        <span className="font-bold">R$150,00/mês</span>
-                        <div className="text-xs text-green-600 font-medium">Economia de 25%</div>
+                        <span className="font-bold">R$119,99/mês</span>
+                        <div className="text-xs text-green-600 font-medium">Economia de 40%</div>
                       </div>
                     </div>
-                    <div className="text-sm mb-2">Total: R$1.800,00/ano</div>
+                    <div className="text-sm mb-2">Total: R$1.439,88/ano</div>
                     <ul className="mt-2 space-y-1 text-sm">
                       <li className="flex items-center">
                         <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
@@ -499,12 +565,12 @@ export default function CheckoutPage() {
                 >
                   Cancelar
                 </Button>
+
                 {freeSlotAvailable && !mudarPlano ? (
                   <Button
                     onClick={handleActivateFree}
-                    className="flex-1"
+                    className="flex-1 bg-green-600 hover:bg-green-700"
                     disabled={loading || activatingFreeRef.current}
-                    style={{ backgroundColor: "var(--cor-primaria)" }}
                   >
                     {loading ? (
                       <span className="flex items-center">
@@ -512,7 +578,22 @@ export default function CheckoutPage() {
                         Ativando...
                       </span>
                     ) : (
-                      "Ativar Gratuitamente"
+                      "🎉 Ativar Gratuitamente"
+                    )}
+                  </Button>
+                ) : trialAvailable && !mudarPlano ? (
+                  <Button
+                    onClick={handleActivateTrial}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    disabled={loading || activatingTrialRef.current}
+                  >
+                    {loading ? (
+                      <span className="flex items-center">
+                        <span className="animate-spin mr-2 h-4 w-4 border-b-2 border-white rounded-full"></span>
+                        Ativando...
+                      </span>
+                    ) : (
+                      "⏰ Iniciar Teste Grátis"
                     )}
                   </Button>
                 ) : (
@@ -583,6 +664,9 @@ async function getBarbeariaInfo(barbeariaId: string) {
     return { success: false, error: "Erro ao buscar barbearia" }
   }
 }
+
+
+
 
 
 

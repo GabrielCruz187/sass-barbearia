@@ -6,7 +6,19 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { Users, Gift, Settings, BarChart3, LogOut, Scissors, Menu, X, CreditCard, AlertTriangle } from "lucide-react"
+import {
+  Users,
+  Gift,
+  Settings,
+  BarChart3,
+  LogOut,
+  Scissors,
+  Menu,
+  X,
+  CreditCard,
+  AlertTriangle,
+  Clock,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -22,7 +34,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [isPaid, setIsPaid] = useState(false)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null)
   const [checkingSubscription, setCheckingSubscription] = useState(true)
   const [barbeariaInfo, setBarbeariaInfo] = useState({
     nome: "",
@@ -56,14 +68,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           if (response.ok) {
             const data = await response.json()
             console.log("Status da assinatura:", data)
-            setIsPaid(data.status === "active")
+            setSubscriptionStatus(data)
           } else {
             console.error("Erro ao verificar status da assinatura")
-            setIsPaid(false)
+            setSubscriptionStatus({ status: "inactive" })
           }
         } catch (error) {
           console.error("Erro ao verificar status da assinatura:", error)
-          setIsPaid(false)
+          setSubscriptionStatus({ status: "inactive" })
         } finally {
           setCheckingSubscription(false)
         }
@@ -143,6 +155,79 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     )
   }
 
+  // Função para renderizar alertas de assinatura
+  const renderSubscriptionAlert = () => {
+    if (checkingSubscription || pathname === "/admin/assinatura" || pathname === "/checkout") {
+      return null
+    }
+
+    if (!subscriptionStatus) {
+      return (
+        <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+          <AlertTriangle className="h-4 w-4 text-yellow-800" />
+          <AlertDescription className="text-yellow-800">
+            Status da assinatura não disponível.{" "}
+            <Link href="/admin/assinatura" className="font-medium underline">
+              Verificar assinatura
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )
+    }
+
+    if (subscriptionStatus.status === "expired") {
+      return (
+        <Alert className="mb-4 bg-red-50 border-red-200">
+          <AlertTriangle className="h-4 w-4 text-red-800" />
+          <AlertDescription className="text-red-800">
+            <span className="font-bold">⚠️ Período de teste expirado!</span> Escolha um plano para continuar usando o
+            sistema.{" "}
+            <Link href="/admin/assinatura" className="font-medium underline">
+              Ativar assinatura
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )
+    }
+
+    if (subscriptionStatus.status === "active" && subscriptionStatus.plano === "trial") {
+      const diasRestantes = subscriptionStatus.diasRestantes || 0
+      const isUrgent = diasRestantes <= 2
+
+      return (
+        <Alert className={`mb-4 ${isUrgent ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"}`}>
+          <Clock className={`h-4 w-4 ${isUrgent ? "text-red-800" : "text-yellow-800"}`} />
+          <AlertDescription className={isUrgent ? "text-red-800" : "text-yellow-800"}>
+            <span className="font-bold">{isUrgent ? "🚨 Urgente!" : "⏰ Período de teste:"}</span>{" "}
+            {diasRestantes > 0
+              ? `${diasRestantes} dia${diasRestantes > 1 ? "s" : ""} restante${diasRestantes > 1 ? "s" : ""}`
+              : "Expira hoje"}
+            .{" "}
+            <Link href="/admin/assinatura" className="font-medium underline">
+              Escolher plano
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )
+    }
+
+    if (subscriptionStatus.status === "inactive") {
+      return (
+        <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+          <AlertTriangle className="h-4 w-4 text-yellow-800" />
+          <AlertDescription className="text-yellow-800">
+            Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.{" "}
+            <Link href="/admin/assinatura" className="font-medium underline">
+              Ativar assinatura
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )
+    }
+
+    return null
+  }
+
   const renderNavItems = () => (
     <nav className="space-y-2">
       {navItems.map((item) => (
@@ -181,17 +266,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </h1>
       </div>
 
-      {!checkingSubscription && !isPaid && pathname !== "/admin/assinatura" && (
-        <Alert className="mb-4 bg-yellow-900/30 border-yellow-800">
-          <AlertTriangle className="h-4 w-4 text-yellow-400" />
-          <AlertDescription className="text-yellow-100 text-xs">
-            Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.
-            <Link href="/admin/assinatura" className="block mt-1 text-yellow-400 hover:underline">
-              Ativar assinatura
-            </Link>
-          </AlertDescription>
-        </Alert>
-      )}
+      {renderSubscriptionAlert()}
 
       {renderNavItems()}
 
@@ -252,17 +327,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Button>
             </div>
 
-            {!checkingSubscription && !isPaid && pathname !== "/admin/assinatura" && (
-              <Alert className="mb-4 bg-yellow-900/30 border-yellow-800">
-                <AlertTriangle className="h-4 w-4 text-yellow-400" />
-                <AlertDescription className="text-yellow-100 text-xs">
-                  Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.
-                  <Link href="/admin/assinatura" className="block mt-1 text-yellow-400 hover:underline">
-                    Ativar assinatura
-                  </Link>
-                </AlertDescription>
-              </Alert>
-            )}
+            {renderSubscriptionAlert()}
 
             {renderNavItems()}
 
@@ -284,21 +349,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {renderMobileHeader()}
 
       <div className="flex-1 p-6 md:p-8 bg-gray-50 md:ml-64 md:mt-0 mt-16">
-        {!checkingSubscription && !isPaid && pathname !== "/admin/assinatura" && pathname !== "/checkout" && (
-          <Alert className="mb-6 bg-yellow-50 border-yellow-200">
-            <AlertTriangle className="h-4 w-4 text-yellow-800" />
-            <AlertDescription className="text-yellow-800">
-              Sua assinatura não está ativa. Algumas funcionalidades podem estar limitadas.{" "}
-              <Link href="/admin/assinatura" className="font-medium underline">
-                Ativar assinatura
-              </Link>
-            </AlertDescription>
-          </Alert>
-        )}
-
+        {renderSubscriptionAlert()}
         {children}
       </div>
     </div>
   )
 }
+
 

@@ -3,26 +3,42 @@ import prisma from "@/lib/prisma"
 
 export async function GET() {
   try {
-    console.log("API check-free-slots: Verificando vagas gratuitas disponíveis")
-
-    // Contar quantas barbearias já estão com assinatura ativa e plano gratuito
-    const assinaturasGratuitasAtivas = await prisma.assinatura.count({
+    // Contar quantas barbearias já estão com assinatura gratuita ativa (não trial)
+    const freeSubscriptions = await prisma.assinatura.count({
       where: {
         status: "active",
         plano: "gratuito",
       },
     })
 
-    console.log("API check-free-slots: Assinaturas gratuitas ativas encontradas:", assinaturasGratuitasAtivas)
+    console.log("Assinaturas gratuitas ativas:", freeSubscriptions)
 
-    // Verificar se ainda há vagas gratuitas disponíveis (limite de 2)
-    const freeSlotAvailable = assinaturasGratuitasAtivas < 2
+    // As duas primeiras barbearias ganham acesso totalmente gratuito
+    const freeSlotAvailable = freeSubscriptions < 2
 
-    console.log("API check-free-slots: Vagas gratuitas disponíveis:", freeSlotAvailable)
+    let message = ""
+    if (freeSlotAvailable) {
+      const remaining = 2 - freeSubscriptions
+      message = `Você é uma das ${remaining === 2 ? "duas primeiras" : "últimas"} barbearias! Ganhe acesso gratuito para sempre!`
+    } else {
+      message = "Teste grátis por 7 dias! Depois escolha seu plano."
+    }
 
-    return NextResponse.json({ freeSlotAvailable })
+    return NextResponse.json({
+      freeSlotAvailable,
+      message,
+      trialAvailable: !freeSlotAvailable, // Se não tem vaga gratuita, tem trial
+    })
   } catch (error) {
     console.error("Erro ao verificar vagas gratuitas:", error)
-    return NextResponse.json({ error: "Erro ao verificar vagas gratuitas" }, { status: 500 })
+    return NextResponse.json(
+      {
+        freeSlotAvailable: false,
+        trialAvailable: true,
+        message: "Teste grátis por 7 dias! Depois escolha seu plano.",
+      },
+      { status: 500 },
+    )
   }
 }
+
