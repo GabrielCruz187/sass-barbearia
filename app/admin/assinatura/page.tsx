@@ -145,7 +145,12 @@ export default function AssinaturaPage() {
       </h1>
 
       <div className="mb-4 flex justify-end">
-        <Button variant="outline" size="sm" onClick={carregarAssinatura} className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={carregarAssinatura}
+          className="flex items-center gap-1 bg-transparent"
+        >
           <RefreshCw className="h-4 w-4" />
           Atualizar
         </Button>
@@ -208,7 +213,7 @@ export default function AssinaturaPage() {
                       ) : assinatura.plano === "mensal" ? (
                         <span>Mensal - R$199,00/mês</span>
                       ) : assinatura.plano === "anual" ? (
-                        <span>Anual - R$150,00/mês (R$1.800,00/ano)</span>
+                        <span>Anual - R$119,99/mês (R$1.439,88/ano)</span>
                       ) : (
                         assinatura.plano || "Mensal"
                       )}
@@ -267,7 +272,7 @@ export default function AssinaturaPage() {
                             size="sm"
                             onClick={handleForcarAtualizacao}
                             disabled={atualizando}
-                            className="mt-2"
+                            className="mt-2 bg-transparent"
                           >
                             {atualizando ? "Atualizando..." : "Forçar Atualização"}
                           </Button>
@@ -357,14 +362,14 @@ export default function AssinaturaPage() {
                     <div>
                       <h3 className="text-lg font-semibold">Plano Anual</h3>
                       <div className="mt-2 text-2xl font-bold">
-                        R$ 150,00<span className="text-sm font-normal text-muted-foreground">/mês</span>
+                        R$ 119,99<span className="text-sm font-normal text-muted-foreground">/mês</span>
                       </div>
                     </div>
                     <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                      Economize 25%
+                      Economize 40%
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Total: R$1.800,00/ano</div>
+                  <div className="text-sm text-muted-foreground mt-1">Total: R$1.439,88/ano</div>
                   <ul className="mt-4 space-y-2 text-sm">
                     <li className="flex items-center">
                       <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
@@ -420,7 +425,7 @@ export default function AssinaturaPage() {
                         })}
                       </div>
                     </div>
-                    <div className="font-medium">{assinatura.plano === "mensal" ? "R$199,00" : "R$1.800,00"}</div>
+                    <div className="font-medium">{assinatura.plano === "mensal" ? "R$199,00" : "R$1.439,88"}</div>
                   </div>
                 </div>
               ) : (
@@ -433,6 +438,7 @@ export default function AssinaturaPage() {
     </div>
   )
 }
+
 
 
 
