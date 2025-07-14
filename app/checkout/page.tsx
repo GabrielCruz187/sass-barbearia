@@ -500,8 +500,12 @@ export default function CheckoutPage() {
                   <div className="p-4 bg-white border rounded-lg shadow-sm">
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">Plano Mensal</span>
-                      <span className="font-bold">R$199,00/mês</span>
+                      <div className="text-right">
+                        <span className="font-bold">R$398,00</span>
+                        <div className="text-xs text-gray-600">1º mês: Taxa + Mensalidade</div>
+                      </div>
                     </div>
+                    <div className="text-sm mb-2 text-gray-600">Próximas mensalidades: R$199,00/mês</div>
                     <ul className="mt-2 space-y-1 text-sm">
                       <li className="flex items-center">
                         <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
@@ -523,11 +527,13 @@ export default function CheckoutPage() {
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">Plano Anual</span>
                       <div className="text-right">
-                        <span className="font-bold">R$119,99/mês</span>
-                        <div className="text-xs text-green-600 font-medium">Economia de 40%</div>
+                        <span className="font-bold">R$1.638,88</span>
+                        <div className="text-xs text-green-600 font-medium">Taxa + 1º ano</div>
                       </div>
                     </div>
-                    <div className="text-sm mb-2">Total: R$1.439,88/ano</div>
+                    <div className="text-sm mb-2 text-gray-600">
+                      Taxa de adesão: R$199,00 + Primeiro ano: R$1.439,88
+                    </div>
                     <ul className="mt-2 space-y-1 text-sm">
                       <li className="flex items-center">
                         <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
@@ -664,6 +670,14 @@ async function getBarbeariaInfo(barbeariaId: string) {
     return { success: false, error: "Erro ao buscar barbearia" }
   }
 }
+
+
+
+
+
+
+
+
 
 
 
