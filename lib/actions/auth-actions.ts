@@ -4,6 +4,18 @@ import { hash } from "bcrypt"
 import prisma from "@/lib/prisma"
 import { isEmailValid } from "@/lib/email-validator"
 
+// Função para gerar slug a partir do nome
+function generateSlug(nome: string): string {
+  return nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/[^a-z0-9\s-]/g, "") // Remove caracteres especiais
+    .replace(/\s+/g, "-") // Substitui espaços por hífens
+    .replace(/-+/g, "-") // Remove hífens duplicados
+    .trim()
+}
+
 // Cadastrar nova barbearia
 export async function cadastrarBarbearia(formData: FormData) {
   try {
@@ -32,6 +44,17 @@ export async function cadastrarBarbearia(formData: FormData) {
       return { error: "Este email já está em uso por outra barbearia" }
     }
 
+    // Gerar slug único
+    const baseSlug = generateSlug(nome)
+    let slug = baseSlug
+    let counter = 1
+
+    // Verificar se o slug já existe e gerar um único
+    while (await prisma.barbearia.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${counter}`
+      counter++
+    }
+
     // Hash da senha
     const senhaHash = await hash(senha, 10)
 
@@ -44,6 +67,7 @@ export async function cadastrarBarbearia(formData: FormData) {
         whatsapp,
         senha: senhaHash,
         endereco,
+        slug,
         corPrimaria: "#333333",
         corSecundaria: "#666666",
         configuracao: {
@@ -128,6 +152,7 @@ export async function cadastrarBarbearia(formData: FormData) {
       return {
         success: true,
         barbeariaId: novaBarbearia.id,
+        slug: novaBarbearia.slug,
         redirectTo: "/login?cadastro=sucesso",
       }
     } else {
@@ -135,6 +160,7 @@ export async function cadastrarBarbearia(formData: FormData) {
       return {
         success: true,
         barbeariaId: novaBarbearia.id,
+        slug: novaBarbearia.slug,
         redirectTo: `/checkout?barbeariaId=${novaBarbearia.id}`,
       }
     }
@@ -209,5 +235,6 @@ export async function cadastrarCliente(formData: FormData) {
     return { error: `Erro ao cadastrar usuário: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
+
 
 

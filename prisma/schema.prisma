@@ -24,14 +24,16 @@ model Barbearia {
   corSecundaria   String    @default("#666666")
   senha           String
   ativo           Boolean   @default(false)
-  
+  slug            String?   @unique
+  paginaPersonalizada Boolean @default(false)
+
   // Relacionamentos
   usuarios        Usuario[]
   premios         Premio[]
   jogos           Jogo[]
   configuracao   Configuracao?
   assinatura     Assinatura?
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
@@ -41,18 +43,18 @@ model Assinatura {
   id                  String    @id @default(cuid())
   barbeariaId         String    @unique
   barbearia           Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  
+
   status              String    @default("pending") // pending, active, canceled, expired
   plano               String    @default("mensal") // mensal, anual, gratuito, trial
   stripeCustomerId    String?   @unique
   stripeSubscriptionId String?  @unique
   stripePaymentIntentId String?
-  
+
   dataInicio         DateTime?
   dataFim            DateTime? // Data de fim do trial ou assinatura
   ultimoPagamento    DateTime?
   dataProximaCobranca DateTime?
-  
+
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
@@ -66,14 +68,14 @@ model Usuario {
   senha           String
   role            Role      @default(CLIENTE)
   assinante       Boolean   @default(false)
-  
+
   // Relacionamento com barbearia
   barbeariaId     String
   barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  
+
   // Relacionamento com jogos
   jogos           Jogo[]
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -95,14 +97,14 @@ model Premio {
   chance          Float     @default(25)
   ativo           Boolean   @default(true)
   tipoCliente     String    @default("nao_assinante") // "assinante", "nao_assinante", "ambos"
-  
+
   // Relacionamento com barbearia
   barbeariaId     String
   barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  
+
   // Relacionamento com jogos
   jogos           Jogo[]
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
@@ -110,23 +112,23 @@ model Premio {
 // Modelo para jogos/sorteios
 model Jogo {
   id              String    @id @default(cuid())
-  
+
   // Relacionamento com usuário
   usuarioId       String
   usuario         Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  
+
   // Relacionamento com prêmio
   premioId        String
   premio          Premio    @relation(fields: [premioId], references: [id], onDelete: Cascade)
-  
+
   // Relacionamento com barbearia
   barbeariaId     String
   barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  
+
   resgatado       Boolean   @default(false)
   dataResgate     DateTime?
   dataExpiracao   DateTime
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime?  @updatedAt
 }
@@ -134,18 +136,16 @@ model Jogo {
 // Modelo para configurações adicionais da barbearia
 model Configuracao {
   id              String    @id @default(cuid())
-  
+
   // Limite de jogos por mês por cliente
   limiteJogosMes  Int       @default(1)
-  
+
   // Dias de validade do prêmio
   diasValidade    Int       @default(30)
-  
+
   // Relacionamento com barbearia
   barbeariaId     String    @unique
   barbearia       Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  
+
   updatedAt       DateTime  @updatedAt
 }
-
-
