@@ -1,82 +1,81 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = new URL(request.url)
     const barbeariaId = searchParams.get("barbeariaId")
 
-    if (!barbeariaId) {
+    // Tentar obter a sessão, mas não exigir autenticação
+    let sessionBarbeariaId = null
+    try {
+      const session = await getServerSession(authOptions)
+      if (session?.user?.barbeariaId) {
+        sessionBarbeariaId = session.user.barbeariaId
+      }
+    } catch (error) {
+      console.log("Sessão não disponível, continuando sem autenticação")
+    }
+
+    // Usar o ID fornecido ou o da sessão
+    const idToCheck = barbeariaId || sessionBarbeariaId
+
+    if (!idToCheck) {
       return NextResponse.json({ error: "ID da barbearia não fornecido" }, { status: 400 })
     }
 
-    // Buscar assinatura da barbearia
+    // Buscar a assinatura da barbearia
     const assinatura = await prisma.assinatura.findUnique({
-      where: { barbeariaId },
+      where: { barbeariaId: idToCheck },
     })
 
     if (!assinatura) {
       return NextResponse.json({
         hasSubscription: false,
-        status: "none",
+        status: null,
+        plan: null,
         message: "Nenhuma assinatura encontrada",
       })
     }
 
-    // Verificar se é trial e calcular dias restantes
-    if (assinatura.plano === "trial") {
-      const agora = new Date()
-      const dataFim = assinatura.dataProximaCobranca
-      const diasRestantes = Math.ceil((dataFim.getTime() - agora.getTime()) / (1000 * 60 * 60 * 24))
+    // Verificar se o trial expirou
+    const now = new Date()
+    const isTrialExpired =
+      assinatura.plano === "trial" && assinatura.dataProximaCobranca && assinatura.dataProximaCobranca < now
 
-      if (diasRestantes <= 0) {
-        // Trial expirado - atualizar status
-        await prisma.assinatura.update({
-          where: { barbeariaId },
-          data: { status: "expired" },
-        })
-
-        return NextResponse.json({
-          hasSubscription: true,
-          status: "expired",
-          plano: "trial",
-          diasRestantes: 0,
-          message: "⚠️ Período de teste expirado! Escolha um plano para continuar usando.",
-          urgente: true,
-        })
-      }
-
-      // Trial ativo
-      const urgente = diasRestantes <= 2
-      const message = urgente
-        ? `🚨 Urgente! Apenas ${diasRestantes} ${diasRestantes === 1 ? "dia restante" : "dias restantes"} do seu teste grátis!`
-        : `⏰ Período de teste: ${diasRestantes} ${diasRestantes === 1 ? "dia restante" : "dias restantes"}`
+    if (isTrialExpired) {
+      // Atualizar status para expirado
+      await prisma.assinatura.update({
+        where: { barbeariaId: idToCheck },
+        data: { status: "expired" },
+      })
 
       return NextResponse.json({
         hasSubscription: true,
-        status: "active",
-        plano: "trial",
-        diasRestantes,
-        message,
-        urgente,
+        status: "expired",
+        plan: "trial",
+        message: "Período de teste expirado",
+        expired: true,
       })
     }
 
-    // Assinatura normal (mensal/anual)
     return NextResponse.json({
       hasSubscription: true,
       status: assinatura.status,
-      plano: assinatura.plano,
+      plan: assinatura.plano,
       dataProximaCobranca: assinatura.dataProximaCobranca,
-      message:
-        assinatura.plano === "mensal" ? "✅ Plano Mensal Ativo (R$199,00/mês)" : "✅ Plano Anual Ativo (R$119,99/mês)",
+      ultimoPagamento: assinatura.ultimoPagamento,
     })
   } catch (error) {
     console.error("Erro ao verificar status da assinatura:", error)
-    const errorMessage = error instanceof Error ? error.message : "Erro ao verificar assinatura"
-
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
+
+
+
+
 
 

@@ -101,8 +101,8 @@ export async function verificarVagasGratuitas() {
       },
     })
 
-    // Verificar se ainda há vagas gratuitas disponíveis (limite de 2)
-    const vagasDisponiveis = Math.max(0, 2 - assinaturasGratuitasAtivas)
+    // Verificar se ainda há vagas gratuitas disponíveis (limite de 1)
+    const vagasDisponiveis = Math.max(0, 1 - assinaturasGratuitasAtivas)
 
     return {
       success: true,
@@ -124,6 +124,8 @@ export async function cancelarAssinatura() {
       return { error: "Usuário não autenticado ou não é proprietário de barbearia" }
     }
 
+    console.log("Cancelando assinatura para barbeariaId:", session.user.barbeariaId)
+
     const assinatura = await prisma.assinatura.findUnique({
       where: { barbeariaId: session.user.barbeariaId },
     })
@@ -132,21 +134,44 @@ export async function cancelarAssinatura() {
       return { error: "Nenhuma assinatura encontrada" }
     }
 
-    if (!assinatura.stripeSubscriptionId) {
-      return { error: "Nenhuma assinatura ativa encontrada" }
+    console.log("Assinatura encontrada para cancelamento:", assinatura)
+
+    // Se for plano gratuito ou trial, apenas cancelar
+    if (assinatura.plano === "gratuito" || assinatura.plano === "trial") {
+      await prisma.assinatura.update({
+        where: { id: assinatura.id },
+        data: {
+          status: "canceled",
+        },
+      })
+
+      console.log("Assinatura gratuita/trial cancelada")
+      revalidatePath("/admin/assinatura")
+      return { success: true, message: "Assinatura cancelada com sucesso" }
     }
 
-    // Aqui você chamaria a API do Stripe para cancelar a assinatura
-    // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-10-16' });
-    // await stripe.subscriptions.cancel(assinatura.stripeSubscriptionId);
+    // Para assinaturas pagas, cancelar no Stripe se houver stripeSubscriptionId
+    if (assinatura.stripeSubscriptionId) {
+      try {
+        // Aqui você chamaria a API do Stripe para cancelar a assinatura
+        // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-10-16' });
+        // await stripe.subscriptions.cancel(assinatura.stripeSubscriptionId);
+        console.log("Cancelamento no Stripe seria chamado aqui para:", assinatura.stripeSubscriptionId)
+      } catch (stripeError) {
+        console.error("Erro ao cancelar no Stripe:", stripeError)
+        // Continuar com o cancelamento local mesmo se o Stripe falhar
+      }
+    }
 
     // Atualizar o status da assinatura no banco de dados
-    await prisma.assinatura.update({
+    const assinaturaAtualizada = await prisma.assinatura.update({
       where: { id: assinatura.id },
       data: {
         status: "canceled",
       },
     })
+
+    console.log("Assinatura cancelada no banco:", assinaturaAtualizada)
 
     // Revalidar o caminho para garantir que os dados sejam atualizados
     revalidatePath("/admin/assinatura")
@@ -154,7 +179,7 @@ export async function cancelarAssinatura() {
     return { success: true, message: "Assinatura cancelada com sucesso" }
   } catch (error) {
     console.error("Erro ao cancelar assinatura:", error)
-    return { error: "Erro ao cancelar assinatura" }
+    return { error: "Erro ao cancelar assinatura. Tente novamente." }
   }
 }
 
@@ -207,3 +232,5 @@ export async function forcarAtualizacaoAssinatura() {
     return { error: "Erro ao atualizar status da assinatura" }
   }
 }
+
+

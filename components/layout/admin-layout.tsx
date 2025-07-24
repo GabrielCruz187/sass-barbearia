@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import {
   Users,
@@ -30,6 +30,7 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: session, status } = useSession()
   const [isMobile, setIsMobile] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -69,6 +70,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             const data = await response.json()
             console.log("Status da assinatura:", data)
             setSubscriptionStatus(data)
+
+            // Se o trial expirou, redirecionar para checkout
+            if (data.redirectToCheckout) {
+              setTimeout(() => {
+                router.push(`/checkout?barbeariaId=${session.user.barbeariaId}&expired=true`)
+              }, 3000)
+            }
           } else {
             console.error("Erro ao verificar status da assinatura")
             setSubscriptionStatus({ status: "inactive" })
@@ -85,7 +93,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
 
     checkSubscriptionStatus()
-  }, [session, status])
+  }, [session, status, router])
 
   useEffect(() => {
     const fetchBarbeariaInfo = async () => {
@@ -129,6 +137,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     await signOut({ callbackUrl: "/login" })
   }
 
+  const handleGoToCheckout = () => {
+    router.push(`/checkout?barbeariaId=${session?.user?.barbeariaId}`)
+  }
+
   // Mostrar um estado de carregamento enquanto verificamos a sessão
   if (status === "loading") {
     return (
@@ -150,6 +162,31 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <Button asChild>
             <Link href="/login">Fazer Login</Link>
           </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Mostrar tela de trial expirado
+  if (subscriptionStatus?.status === "expired") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
+          <div className="flex justify-center mb-4 text-red-500">
+            <AlertTriangle size={48} />
+          </div>
+          <h1 className="text-center text-red-600 text-xl font-bold mb-2">Período de Teste Expirado</h1>
+          <p className="text-center text-gray-600 mb-4">
+            Seu período de teste de 7 dias terminou. Escolha um plano para continuar usando o sistema.
+          </p>
+          <Alert className="bg-red-50 border-red-200 mb-4">
+            <AlertTriangle className="h-4 w-4 text-red-800" />
+            <AlertDescription className="text-red-800">{subscriptionStatus.message}</AlertDescription>
+          </Alert>
+          <div className="text-center mb-4">
+            <p className="text-sm text-gray-600 mb-2">Redirecionando para o checkout em alguns segundos...</p>
+            <div className="animate-pulse text-blue-600">⏳ Aguarde...</div>
+          </div>
         </div>
       </div>
     )
@@ -195,19 +232,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       const isUrgent = diasRestantes <= 2
 
       return (
-        <Alert className={`mb-4 ${isUrgent ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"}`}>
-          <Clock className={`h-4 w-4 ${isUrgent ? "text-red-800" : "text-yellow-800"}`} />
-          <AlertDescription className={isUrgent ? "text-red-800" : "text-yellow-800"}>
-            <span className="font-bold">{isUrgent ? "🚨 Urgente!" : "⏰ Período de teste:"}</span>{" "}
-            {diasRestantes > 0
-              ? `${diasRestantes} dia${diasRestantes > 1 ? "s" : ""} restante${diasRestantes > 1 ? "s" : ""}`
-              : "Expira hoje"}
-            .{" "}
-            <Link href="/admin/assinatura" className="font-medium underline">
-              Escolher plano
-            </Link>
-          </AlertDescription>
-        </Alert>
+        <div className="mb-4">
+          {subscriptionStatus.showPaymentButton && (
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-lg mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Clock className="h-5 w-5" />
+                  <span className="font-medium">{subscriptionStatus.message}</span>
+                </div>
+                <Button onClick={handleGoToCheckout} className="bg-white text-orange-600 hover:bg-gray-100" size="sm">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Escolher Plano
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       )
     }
 
@@ -355,6 +395,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     </div>
   )
 }
+
 
 
 

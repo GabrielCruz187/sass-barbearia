@@ -1,80 +1,98 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    console.log("API activate-free-plan: Iniciando processamento")
-    const { barbeariaId } = await req.json()
+    const { barbeariaId } = await request.json()
 
     if (!barbeariaId) {
-      console.log("API activate-free-plan: ID da barbearia não fornecido")
-      return NextResponse.json({ error: "ID da barbearia não fornecido" }, { status: 400 })
+      return NextResponse.json({ error: "ID da barbearia é obrigatório" }, { status: 400 })
     }
 
-    console.log("API activate-free-plan: Verificando barbearia", barbeariaId)
+    // Tentar obter a sessão, mas não exigir autenticação para barbearias recém-cadastradas
+    let sessionBarbeariaId = null
+    try {
+      const session = await getServerSession(authOptions)
+      if (session?.user?.barbeariaId) {
+        sessionBarbeariaId = session.user.barbeariaId
+      }
+    } catch (error) {
+      console.log("Sessão não disponível, continuando sem autenticação para barbearia:", barbeariaId)
+    }
+
+    // Se tiver sessão, verificar se o ID corresponde
+    if (sessionBarbeariaId && barbeariaId !== sessionBarbeariaId) {
+      return NextResponse.json({ error: "ID da barbearia não corresponde à sessão" }, { status: 403 })
+    }
 
     // Verificar se a barbearia existe
     const barbearia = await prisma.barbearia.findUnique({
       where: { id: barbeariaId },
-      include: {
-        assinatura: true,
-      },
     })
 
     if (!barbearia) {
-      console.log("API activate-free-plan: Barbearia não encontrada")
       return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 })
     }
 
-    // Verificar se a barbearia já tem uma assinatura ativa
-    if (barbearia.assinatura && barbearia.assinatura.status === "active") {
-      console.log("API activate-free-plan: Barbearia já possui assinatura ativa")
+    // Verificar se já existe uma assinatura para esta barbearia
+    const assinaturaExistente = await prisma.assinatura.findUnique({
+      where: { barbeariaId },
+    })
+
+    if (assinaturaExistente && assinaturaExistente.status === "active") {
       return NextResponse.json({ error: "Barbearia já possui uma assinatura ativa" }, { status: 400 })
     }
 
-    // Contar quantas barbearias já estão ativas com plano gratuito
-    const barbeariaCount = await prisma.assinatura.count({
+    // Verificar se há vaga gratuita disponível (apenas 1 vaga)
+    const assinaturasGratuitasAtivas = await prisma.assinatura.count({
       where: {
         status: "active",
         plano: "gratuito",
       },
     })
 
-    console.log("API activate-free-plan: Contagem de barbearias com plano gratuito ativo:", barbeariaCount)
-
-    // Verificar se ainda há vagas gratuitas disponíveis (limite de 2)
-    if (barbeariaCount >= 2) {
-      console.log("API activate-free-plan: Não há mais vagas gratuitas disponíveis")
-      return NextResponse.json({ error: "Não há mais vagas gratuitas disponíveis" }, { status: 400 })
+    if (assinaturasGratuitasAtivas >= 1) {
+      return NextResponse.json(
+        {
+          error: "Não há mais vagas gratuitas disponíveis. Você pode iniciar um período de teste gratuito de 7 dias.",
+        },
+        { status: 400 },
+      )
     }
 
-    // Criar ou atualizar a assinatura como gratuita
+    // Criar ou atualizar a assinatura gratuita
     const assinatura = await prisma.assinatura.upsert({
       where: { barbeariaId },
       update: {
         status: "active",
         plano: "gratuito",
-        dataInicio: new Date(),
-        dataProximaCobranca: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 ano a partir de agora
+        dataProximaCobranca: null,
+        ultimoPagamento: new Date(),
       },
       create: {
         barbeariaId,
         status: "active",
         plano: "gratuito",
-        dataInicio: new Date(),
-        dataProximaCobranca: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 ano a partir de agora
+        dataProximaCobranca: null,
+        ultimoPagamento: new Date(),
       },
     })
 
-    console.log("API activate-free-plan: Assinatura ativada com sucesso", assinatura)
+    console.log("Plano gratuito ativado:", assinatura)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: "Parabéns! Sua barbearia foi ativada gratuitamente. Aproveite todas as funcionalidades!",
+      assinatura,
+    })
   } catch (error) {
     console.error("Erro ao ativar plano gratuito:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao ativar plano gratuito" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
+
+
+
 

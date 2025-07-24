@@ -22,6 +22,7 @@ export default function CheckoutPage() {
   const barbeariaId = searchParams.get("barbeariaId")
   const success = searchParams.get("success") === "true"
   const canceled = searchParams.get("canceled") === "true"
+  const expired = searchParams.get("expired") === "true"
   const mudarPlano = searchParams.get("mudarPlano") === "true"
   const [plan, setPlan] = useState<"monthly" | "annual">("monthly")
 
@@ -43,6 +44,8 @@ export default function CheckoutPage() {
   const [sessionBarbeariaId, setSessionBarbeariaId] = useState<string | null>(null)
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false)
   const [pageInitialized, setPageInitialized] = useState(false)
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null)
+  const [alreadyUsedTrial, setAlreadyUsedTrial] = useState(false)
 
   // Obter o ID da barbearia da sessão - executado apenas uma vez
   useEffect(() => {
@@ -78,21 +81,56 @@ export default function CheckoutPage() {
     const checkFreeSlots = async () => {
       try {
         console.log("Verificando vagas gratuitas disponíveis...")
-        const response = await fetch("/api/check-free-slots")
+
+        // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
+        const idToUse = sessionBarbeariaId || barbeariaId
+        const url = idToUse ? `/api/check-free-slots?barbeariaId=${idToUse}` : "/api/check-free-slots"
+
+        const response = await fetch(url)
         const data = await response.json()
         console.log("Resposta da verificação de vagas gratuitas:", data)
-        setFreeSlotAvailable(data.freeSlotAvailable)
-        setTrialAvailable(data.trialAvailable)
-        setFreeSlotMessage(data.message || "")
+
+        // Se o trial expirou, não mostrar opções gratuitas
+        if (expired) {
+          setFreeSlotAvailable(false)
+          setTrialAvailable(false)
+          setFreeSlotMessage("Período de teste expirado. Escolha um plano para continuar.")
+          setAlreadyUsedTrial(true)
+        } else if (data.hasActiveSubscription) {
+          // Se já tem assinatura ativa, verificar se é trial
+          setCurrentPlan(data.currentPlan)
+          if (data.currentPlan === "trial") {
+            // Se está em trial e quer mudar para plano pago, não mostrar opções gratuitas
+            setFreeSlotAvailable(false)
+            setTrialAvailable(false)
+            setFreeSlotMessage("Você está no período de teste. Escolha um plano para continuar após o trial.")
+          } else {
+            // Se tem plano pago ativo
+            setHasActiveSubscription(true)
+          }
+        } else if (data.alreadyUsedTrial) {
+          // Se já usou trial antes
+          setFreeSlotAvailable(false)
+          setTrialAvailable(false)
+          setAlreadyUsedTrial(true)
+          setFreeSlotMessage(data.message || "Escolha um plano pago para continuar.")
+        } else {
+          // Primeira vez ou sem assinatura
+          setFreeSlotAvailable(data.freeSlotAvailable)
+          setTrialAvailable(data.trialAvailable)
+          setFreeSlotMessage(data.message || "")
+          setAlreadyUsedTrial(false)
+        }
       } catch (error) {
         console.error("Erro ao verificar vagas gratuitas:", error)
         setFreeSlotAvailable(false)
-        setTrialAvailable(true)
+        setTrialAvailable(true) // Em caso de erro, permitir trial
+        setFreeSlotMessage("Teste grátis por 7 dias! Depois escolha seu plano.")
       }
     }
 
     checkFreeSlots()
-  }, [pageInitialized])
+  }, [pageInitialized, expired, sessionBarbeariaId, barbeariaId])
 
   // Verificar redirecionamento - executado apenas uma vez após obter a sessão
   useEffect(() => {
@@ -136,8 +174,12 @@ export default function CheckoutPage() {
         } else if (result.success && result.data) {
           setBarbearia(result.data)
 
-          // Verificar se já tem assinatura ativa
-          if (result.data.assinatura && result.data.assinatura.status === "active") {
+          // Verificar se já tem assinatura ativa (não trial)
+          if (
+            result.data.assinatura &&
+            result.data.assinatura.status === "active" &&
+            result.data.assinatura.plano !== "trial"
+          ) {
             setHasActiveSubscription(true)
 
             // Se não estiver tentando mudar de plano, redirecionar para o dashboard
@@ -194,7 +236,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           barbeariaId: idToUse,
           plan,
-          forceUpdate: mudarPlano, // Indicar se é uma mudança de plano
+          forceUpdate: mudarPlano || currentPlan === "trial", // Permitir se está mudando plano ou saindo do trial
         }),
       })
 
@@ -203,7 +245,7 @@ export default function CheckoutPage() {
         console.error("Erro na resposta da API:", errorData)
 
         // Se já tem assinatura ativa e não está tentando mudar de plano
-        if (errorData.error === "Barbearia já possui uma assinatura ativa" && !mudarPlano) {
+        if (errorData.error === "Barbearia já possui uma assinatura ativa" && !mudarPlano && currentPlan !== "trial") {
           setHasActiveSubscription(true)
           toast({
             title: "Assinatura ativa",
@@ -343,6 +385,12 @@ export default function CheckoutPage() {
   }
 
   const handleCancel = () => {
+    // Se o trial expirou, redirecionar para o dashboard sem permitir cancelamento
+    if (expired) {
+      router.push("/admin/dashboard")
+      return
+    }
+
     // Usar o ID da sessão se disponível, caso contrário usar o ID da URL
     const idToUse = sessionBarbeariaId || barbeariaId
     router.push(`/checkout?canceled=true&barbeariaId=${idToUse}`)
@@ -446,13 +494,57 @@ export default function CheckoutPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center">{mudarPlano ? "Alterar Plano" : "Escolha seu Plano"}</CardTitle>
+          <CardTitle className="text-center">
+            {expired
+              ? "Período de Teste Expirado"
+              : mudarPlano
+                ? "Alterar Plano"
+                : currentPlan === "trial"
+                  ? "Assinar Plano"
+                  : "Escolha seu Plano"}
+          </CardTitle>
           <CardDescription className="text-center">
-            {mudarPlano ? "Escolha um novo plano para sua barbearia" : "Ative sua barbearia e comece a usar"}
+            {expired
+              ? "Escolha um plano para continuar usando o sistema"
+              : mudarPlano
+                ? "Escolha um novo plano para sua barbearia"
+                : currentPlan === "trial"
+                  ? "Você está no período de teste. Escolha um plano para continuar."
+                  : "Ative sua barbearia e comece a usar"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {freeSlotAvailable && !mudarPlano && (
+          {expired && (
+            <Alert className="mb-6 bg-red-50 border-red-200">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                <span className="font-bold">⚠️ Trial Expirado!</span> Seu período de teste de 7 dias terminou. Escolha um
+                plano para continuar usando todas as funcionalidades.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {currentPlan === "trial" && !expired && (
+            <Alert className="mb-6 bg-blue-50 border-blue-200">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <span className="font-bold">⏰ Período de Teste Ativo!</span> Você está testando o sistema. Escolha um
+                plano para continuar após o trial.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {alreadyUsedTrial && !expired && currentPlan !== "trial" && (
+            <Alert className="mb-6 bg-orange-50 border-orange-200">
+              <Info className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <span className="font-bold">ℹ️ Trial Usado</span> Esta barbearia já utilizou o período de teste. Escolha
+                um plano pago para continuar.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {freeSlotAvailable && !mudarPlano && !expired && currentPlan !== "trial" && (
             <Alert className="mb-6 bg-green-50 border-green-200">
               <Sparkles className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
@@ -461,14 +553,19 @@ export default function CheckoutPage() {
             </Alert>
           )}
 
-          {trialAvailable && !freeSlotAvailable && !mudarPlano && (
-            <Alert className="mb-6 bg-blue-50 border-blue-200">
-              <Clock className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                <span className="font-bold">⏰ Teste Grátis!</span> {freeSlotMessage}
-              </AlertDescription>
-            </Alert>
-          )}
+          {trialAvailable &&
+            !freeSlotAvailable &&
+            !mudarPlano &&
+            !expired &&
+            currentPlan !== "trial" &&
+            !alreadyUsedTrial && (
+              <Alert className="mb-6 bg-blue-50 border-blue-200">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <span className="font-bold">⏰ Teste Grátis!</span> {freeSlotMessage}
+                </AlertDescription>
+              </Alert>
+            )}
 
           {mudarPlano && barbearia?.assinatura?.plano && (
             <Alert className="mb-6 bg-blue-50 border-blue-200">
@@ -478,8 +575,10 @@ export default function CheckoutPage() {
                 {barbearia.assinatura.plano === "mensal"
                   ? "Mensal (R$199,00/mês)"
                   : barbearia.assinatura.plano === "anual"
-                    ? "Anual (R$119,99/mês)"
-                    : barbearia.assinatura.plano}
+                    ? "Anual (R$109,90/mês)"
+                    : barbearia.assinatura.plano === "trial"
+                      ? "Período de Teste"
+                      : barbearia.assinatura.plano}
               </AlertDescription>
             </Alert>
           )}
@@ -502,8 +601,11 @@ export default function CheckoutPage() {
                       <span className="font-medium">Plano Mensal</span>
                       <div className="text-right">
                         <span className="font-bold">R$398,00</span>
-                        <div className="text-xs text-gray-600">1º mês: Taxa + Mensalidade</div>
+                        <div className="text-xs text-gray-600">Primeiro pagamento</div>
                       </div>
+                    </div>
+                    <div className="text-sm mb-2 text-gray-600">
+                      Taxa de adesão: R$199,00 + Primeira mensalidade: R$199,00
                     </div>
                     <div className="text-sm mb-2 text-gray-600">Próximas mensalidades: R$199,00/mês</div>
                     <ul className="mt-2 space-y-1 text-sm">
@@ -527,13 +629,12 @@ export default function CheckoutPage() {
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">Plano Anual</span>
                       <div className="text-right">
-                        <span className="font-bold">R$1.638,88</span>
-                        <div className="text-xs text-green-600 font-medium">Taxa + 1º ano</div>
+                        <span className="font-bold">R$1.318,80</span>
+                        <div className="text-xs text-green-600 font-medium">Pagamento anual</div>
                       </div>
                     </div>
-                    <div className="text-sm mb-2 text-gray-600">
-                      Taxa de adesão: R$199,00 + Primeiro ano: R$1.439,88
-                    </div>
+                    <div className="text-sm mb-2 text-gray-600">R$ 109,90/mês cobrado anualmente</div>
+                    <div className="text-sm mb-2 text-gray-600">45% de desconto comparado ao plano mensal</div>
                     <ul className="mt-2 space-y-1 text-sm">
                       <li className="flex items-center">
                         <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
@@ -564,15 +665,12 @@ export default function CheckoutPage() {
               )}
 
               <div className="flex gap-4">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push(mudarPlano ? "/admin/assinatura" : "/admin/dashboard")}
-                  className="flex-1"
-                >
-                  Cancelar
+                <Button variant="outline" onClick={handleCancel} className="flex-1 bg-transparent">
+                  {expired ? "Voltar" : "Cancelar"}
                 </Button>
 
-                {freeSlotAvailable && !mudarPlano ? (
+                {/* Mostrar opção gratuita apenas se disponível e não está em trial */}
+                {freeSlotAvailable && !mudarPlano && !expired && currentPlan !== "trial" ? (
                   <Button
                     onClick={handleActivateFree}
                     className="flex-1 bg-green-600 hover:bg-green-700"
@@ -587,7 +685,8 @@ export default function CheckoutPage() {
                       "🎉 Ativar Gratuitamente"
                     )}
                   </Button>
-                ) : trialAvailable && !mudarPlano ? (
+                ) : /* Mostrar trial apenas se disponível e não está em trial e não usou trial antes */
+                trialAvailable && !mudarPlano && !expired && currentPlan !== "trial" && !alreadyUsedTrial ? (
                   <Button
                     onClick={handleActivateTrial}
                     className="flex-1 bg-blue-600 hover:bg-blue-700"
@@ -603,6 +702,7 @@ export default function CheckoutPage() {
                     )}
                   </Button>
                 ) : (
+                  /* Mostrar botão de pagamento para todos os outros casos */
                   <Button
                     onClick={createSubscription}
                     className="flex-1"
@@ -613,7 +713,11 @@ export default function CheckoutPage() {
                       ? "Processando..."
                       : mudarPlano
                         ? "Mudar Plano"
-                        : "Continuar para Pagamento"}
+                        : currentPlan === "trial"
+                          ? "Assinar Plano"
+                          : expired || alreadyUsedTrial
+                            ? "Escolher Plano"
+                            : "Continuar para Pagamento"}
                   </Button>
                 )}
               </div>
@@ -638,7 +742,7 @@ export default function CheckoutPage() {
                   barbeariaId={sessionBarbeariaId || barbeariaId || ""}
                   plan={plan}
                   clientSecret={clientSecret}
-                  isChangingPlan={mudarPlano}
+                  isChangingPlan={mudarPlano || currentPlan === "trial"}
                 />
               </Elements>
             </div>
@@ -670,6 +774,16 @@ async function getBarbeariaInfo(barbeariaId: string) {
     return { success: false, error: "Erro ao buscar barbearia" }
   }
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

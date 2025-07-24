@@ -1,136 +1,94 @@
 import { NextResponse } from "next/server"
-import Stripe from "stripe"
-import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
+import Stripe from "stripe"
 
-// Inicializar o Stripe com a chave secreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2024-06-20",
 })
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { barbeariaId, plan, forceUpdate } = await req.json()
+    const { barbeariaId, plan, forceUpdate } = await request.json()
 
-    // Obter a sessão diretamente usando getServerSession em vez de fazer fetch
-    const session = await getServerSession(authOptions)
-    const sessionBarbeariaId = session?.user?.barbeariaId
-
-    if (!barbeariaId && !sessionBarbeariaId) {
-      return NextResponse.json({ error: "ID da barbearia não fornecido" }, { status: 400 })
+    if (!barbeariaId) {
+      return NextResponse.json({ error: "ID da barbearia é obrigatório" }, { status: 400 })
     }
 
-    // Usar o ID da sessão se disponível, caso contrário usar o ID fornecido
-    const finalBarbeariaId = sessionBarbeariaId || barbeariaId
+    // Tentar obter a sessão, mas não exigir autenticação para barbearias recém-cadastradas
+    let sessionBarbeariaId = null
+    try {
+      const session = await getServerSession(authOptions)
+      if (session?.user?.barbeariaId) {
+        sessionBarbeariaId = session.user.barbeariaId
+      }
+    } catch (error) {
+      console.log("Sessão não disponível, continuando sem autenticação para barbearia:", barbeariaId)
+    }
 
-    // Verificar se é o primeiro pagamento (taxa de adesão + primeira mensalidade)
-    const assinaturaExistente = await prisma.assinatura.findUnique({
-      where: { barbeariaId: finalBarbeariaId },
-    })
-
-    const isFirstPayment = !assinaturaExistente || assinaturaExistente.status === "pending"
-
-    // Valores com taxa de adesão para primeiro pagamento
-    // Taxa de adesão: R$199,00 + Primeira mensalidade
-    const taxaAdesao = 19900 // R$199,00 em centavos
-    const mensalidade = plan === "monthly" ? 19900 : 143988 // R$199,00 ou R$1.439,88 em centavos
-
-    // Se for primeiro pagamento, cobrar taxa de adesão + primeira mensalidade
-    // Se for renovação, cobrar apenas a mensalidade
-    const amount = isFirstPayment ? taxaAdesao + mensalidade : mensalidade
+    // Se tiver sessão, verificar se o ID corresponde
+    if (sessionBarbeariaId && barbeariaId !== sessionBarbeariaId) {
+      return NextResponse.json({ error: "ID da barbearia não corresponde à sessão" }, { status: 403 })
+    }
 
     // Verificar se a barbearia existe
     const barbearia = await prisma.barbearia.findUnique({
-      where: { id: finalBarbeariaId },
+      where: { id: barbeariaId },
+      include: { assinatura: true },
     })
 
     if (!barbearia) {
       return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 })
     }
 
-    // Verificar se já existe uma assinatura ativa
-    if (assinaturaExistente?.status === "active" && !forceUpdate) {
+    // Verificar se já tem assinatura ativa (exceto se for para forçar atualização)
+    if (
+      barbearia.assinatura &&
+      barbearia.assinatura.status === "active" &&
+      barbearia.assinatura.plano !== "trial" &&
+      !forceUpdate
+    ) {
       return NextResponse.json({ error: "Barbearia já possui uma assinatura ativa" }, { status: 400 })
     }
 
-    // Valores atualizados: Mensal R$199,00 e Anual R$119,99/mês (R$1.439,88/ano)
-    const planName = plan === "monthly" ? "mensal" : "anual"
+    // Definir preços baseados no plano
+    let amount: number
+    let priceId: string
 
-    // Criar ou recuperar um cliente no Stripe
-    let stripeCustomerId = assinaturaExistente?.stripeCustomerId
-
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: barbearia.email,
-        name: barbearia.nome,
-        metadata: {
-          barbeariaId: finalBarbeariaId,
-        },
-      })
-
-      stripeCustomerId = customer.id
+    if (plan === "annual") {
+      amount = 131880 // R$ 1.318,80 em centavos
+      priceId = process.env.STRIPE_ANNUAL_PRICE_ID!
+    } else {
+      amount = 39800 // R$ 398,00 em centavos (taxa de adesão + primeira mensalidade)
+      priceId = process.env.STRIPE_MONTHLY_PRICE_ID!
     }
 
-    // Criar uma intenção de pagamento para a assinatura
+    // Criar PaymentIntent no Stripe
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "brl",
-      customer: stripeCustomerId,
       metadata: {
-        barbeariaId: finalBarbeariaId,
-        type: forceUpdate ? "subscription_update" : "subscription_setup",
-        plan: planName,
+        barbeariaId,
+        plan,
+        isSubscription: "true",
       },
-      automatic_payment_methods: {
-        enabled: true,
-      },
+      description: `Assinatura ${plan === "annual" ? "Anual" : "Mensal"} - ${barbearia.nome}`,
     })
-
-    console.log("PaymentIntent criado:", {
-      id: paymentIntent.id,
-      clientSecret: paymentIntent.client_secret ? "Disponível" : "Não disponível",
-      status: paymentIntent.status,
-      amount: amount,
-      plan: planName,
-    })
-
-    // Atualizar ou criar o registro de assinatura
-    const assinatura = await prisma.assinatura.upsert({
-      where: { barbeariaId: finalBarbeariaId },
-      update: {
-        stripeCustomerId,
-        stripePaymentIntentId: paymentIntent.id,
-        status: forceUpdate ? "pending_update" : "pending",
-        plano: planName,
-      },
-      create: {
-        barbeariaId: finalBarbeariaId,
-        stripeCustomerId,
-        stripePaymentIntentId: paymentIntent.id,
-        status: "pending",
-        plano: planName,
-        dataInicio: new Date(),
-        dataProximaCobranca:
-          plan === "monthly"
-            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 dias para mensal
-            : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 365 dias para anual
-      },
-    })
-
-    console.log("Assinatura criada/atualizada:", assinatura)
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
+      amount,
+      plan,
     })
   } catch (error) {
     console.error("Erro ao criar assinatura:", error)
-    const errorMessage = error instanceof Error ? error.message : "Erro ao criar assinatura"
-    console.error("Detalhes do erro:", errorMessage)
-
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
+
+
+
 
 
 

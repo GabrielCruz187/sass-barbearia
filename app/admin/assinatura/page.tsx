@@ -1,443 +1,365 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useSession } from "next-auth/react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { verificarAssinatura, cancelarAssinatura, forcarAtualizacaoAssinatura } from "@/lib/actions/checkout-actions"
-import { CheckCircle2, AlertTriangle, CreditCard, XCircle, Calendar, RefreshCw } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { CheckCircle2, AlertTriangle, Clock, CreditCard, Calendar, Star, Zap, Crown } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+interface AssinaturaInfo {
+  hasSubscription: boolean
+  status: string | null
+  plan: string | null
+  dataProximaCobranca: string | null
+  ultimoPagamento: string | null
+  expired?: boolean
+}
 
 export default function AssinaturaPage() {
-  const [loading, setLoading] = useState(true)
-  const [assinatura, setAssinatura] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [cancelando, setCancelando] = useState(false)
-  const [atualizando, setAtualizando] = useState(false)
-  const [activeTab, setActiveTab] = useState("status")
-  const { toast } = useToast()
+  const { data: session } = useSession()
   const router = useRouter()
+  const { toast } = useToast()
+  const [assinaturaInfo, setAssinaturaInfo] = useState<AssinaturaInfo | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Verificar se o usuário está autenticado
-    const checkSession = async () => {
-      try {
-        const response = await fetch("/api/auth/session")
-        const session = await response.json()
-
-        if (!session || !session.user) {
-          console.log("Usuário não autenticado, redirecionando para login")
-          router.push("/login")
-        } else {
-          console.log("Usuário autenticado:", session.user.email)
-        }
-      } catch (error) {
-        console.error("Erro ao verificar sessão:", error)
-      }
+    if (session?.user?.barbeariaId) {
+      checkSubscriptionStatus()
     }
+  }, [session])
 
-    checkSession()
-  }, [router])
-
-  const carregarAssinatura = async () => {
-    setLoading(true)
+  const checkSubscriptionStatus = async () => {
     try {
-      const result = await verificarAssinatura()
-      console.log("Resultado da verificação de assinatura:", result)
-
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setAssinatura(result)
-      }
+      const response = await fetch(`/api/check-subscription-status?barbeariaId=${session?.user?.barbeariaId}`)
+      const data = await response.json()
+      setAssinaturaInfo(data)
     } catch (error) {
-      setError("Erro ao carregar informações da assinatura")
-      console.error(error)
+      console.error("Erro ao verificar status da assinatura:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível verificar o status da assinatura.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    carregarAssinatura()
-  }, [])
+  const handleChangeplan = () => {
+    router.push(`/checkout?barbeariaId=${session?.user?.barbeariaId}&mudarPlano=true`)
+  }
 
-  const handleCancelarAssinatura = async () => {
-    if (!confirm("Tem certeza que deseja cancelar sua assinatura? Isso limitará o acesso ao sistema.")) {
-      return
+  const handleSubscribe = () => {
+    if (assinaturaInfo?.expired) {
+      router.push(`/checkout?barbeariaId=${session?.user?.barbeariaId}&expired=true`)
+    } else {
+      router.push(`/checkout?barbeariaId=${session?.user?.barbeariaId}`)
     }
+  }
 
-    setCancelando(true)
-    try {
-      const result = await cancelarAssinatura()
-      if (result.error) {
-        toast({ title: "Erro", description: result.error, variant: "destructive" })
-      } else {
-        toast({ title: "Sucesso", description: "Assinatura cancelada com sucesso" })
-        // Recarregar os dados da assinatura
-        carregarAssinatura()
+  const getStatusBadge = (status: string | null, plan: string | null) => {
+    if (status === "active") {
+      if (plan === "gratuito") {
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200">
+            <Star className="w-3 h-3 mr-1" />
+            Gratuito
+          </Badge>
+        )
+      } else if (plan === "trial") {
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+            <Clock className="w-3 h-3 mr-1" />
+            Trial
+          </Badge>
+        )
+      } else if (plan === "mensal") {
+        return (
+          <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+            <Zap className="w-3 h-3 mr-1" />
+            Mensal
+          </Badge>
+        )
+      } else if (plan === "anual") {
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            <Crown className="w-3 h-3 mr-1" />
+            Anual
+          </Badge>
+        )
       }
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao cancelar a assinatura",
-        variant: "destructive",
-      })
-    } finally {
-      setCancelando(false)
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200">
+          <CheckCircle2 className="w-3 h-3 mr-1" />
+          Ativo
+        </Badge>
+      )
+    } else if (status === "expired") {
+      return (
+        <Badge variant="destructive">
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Expirado
+        </Badge>
+      )
+    }
+    return <Badge variant="secondary">Inativo</Badge>
+  }
+
+  const getPlanName = (plan: string | null) => {
+    switch (plan) {
+      case "gratuito":
+        return "Plano Gratuito"
+      case "trial":
+        return "Período de Teste"
+      case "mensal":
+        return "Plano Mensal"
+      case "anual":
+        return "Plano Anual"
+      default:
+        return "Sem plano"
     }
   }
 
-  const handleForcarAtualizacao = async () => {
-    setAtualizando(true)
-    try {
-      const result = await forcarAtualizacaoAssinatura()
-      console.log("Resultado da atualização forçada:", result)
-
-      if (result.error) {
-        toast({ title: "Erro", description: result.error, variant: "destructive" })
-      } else {
-        toast({
-          title: "Sucesso",
-          description: "Status da assinatura atualizado com sucesso",
-          variant: "default",
-        })
-        // Recarregar os dados da assinatura
-        await carregarAssinatura()
-      }
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao atualizar o status da assinatura",
-        variant: "destructive",
-      })
-    } finally {
-      setAtualizando(false)
+  const getPlanPrice = (plan: string | null) => {
+    switch (plan) {
+      case "gratuito":
+        return "R$ 0,00"
+      case "trial":
+        return "Gratuito por 7 dias"
+      case "mensal":
+        return "R$ 199,00/mês"
+      case "anual":
+        return "R$ 109,90/mês"
+      default:
+        return "-"
     }
   }
 
-  const handleRenovarAssinatura = () => {
-    console.log("Redirecionando para checkout com barbeariaId:", assinatura?.barbeariaId)
-    router.push(`/checkout?barbeariaId=${assinatura?.barbeariaId}`)
-  }
-
-  const handleMudarPlano = () => {
-    console.log("Redirecionando para mudar plano com barbeariaId:", assinatura?.barbeariaId)
-    router.push(`/checkout?barbeariaId=${assinatura?.barbeariaId}&mudarPlano=true`)
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-"
+    return new Date(dateString).toLocaleDateString("pt-BR")
   }
 
   if (loading) {
     return (
-      <div className="container py-10">
-        <div className="flex justify-center items-center h-40">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container py-10">
-      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--cor-primaria)" }}>
-        Gerenciar Assinatura
-      </h1>
-
-      <div className="mb-4 flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={carregarAssinatura}
-          className="flex items-center gap-1 bg-transparent"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Atualizar
-        </Button>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Assinatura</h1>
+          <p className="text-gray-600">Gerencie sua assinatura e planos</p>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="status">Status da Assinatura</TabsTrigger>
-          <TabsTrigger value="planos">Planos Disponíveis</TabsTrigger>
-          <TabsTrigger value="historico">Histórico de Pagamentos</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="status">
-          <Card>
-            <CardHeader>
-              <CardTitle>Status da Assinatura</CardTitle>
-              <CardDescription>Informações sobre sua assinatura atual</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {error ? (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : !assinatura ? (
-                <div className="p-4 bg-yellow-50 rounded-md">
-                  <p className="text-yellow-800">Você não possui uma assinatura ativa.</p>
+      {/* Status Atual */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            Status da Assinatura
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assinaturaInfo?.hasSubscription ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-lg">{getPlanName(assinaturaInfo.plan)}</h3>
+                  <p className="text-gray-600">{getPlanPrice(assinaturaInfo.plan)}</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className="font-medium">Status:</div>
-                    <div className="flex items-center">
-                      {assinatura.status === "active" ? (
-                        <>
-                          <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
-                          <span className="text-green-600 font-medium">Ativa</span>
-                        </>
-                      ) : assinatura.status === "pending" ? (
-                        <>
-                          <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
-                          <span className="text-yellow-600 font-medium">Pendente</span>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-4 w-4 text-red-500 mr-1" />
-                          <span className="text-red-600 font-medium">Cancelada</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="font-medium">Plano:</div>
-                    <div className="capitalize">
-                      {assinatura.plano === "gratuito" ? (
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                          Gratuito (Promocional)
-                        </span>
-                      ) : assinatura.plano === "mensal" ? (
-                        <span>Mensal - R$199,00/mês</span>
-                      ) : assinatura.plano === "anual" ? (
-                        <span>Anual - R$119,99/mês (R$1.439,88/ano)</span>
-                      ) : (
-                        assinatura.plano || "Mensal"
-                      )}
-                    </div>
-                  </div>
-
-                  {assinatura.dataProximaCobranca && (
-                    <div className="flex items-center gap-2">
-                      <div className="font-medium">Próxima cobrança:</div>
-                      <div>
-                        {new Date(assinatura.dataProximaCobranca).toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {assinatura.ultimoPagamento && (
-                    <div className="flex items-center gap-2">
-                      <div className="font-medium">Último pagamento:</div>
-                      <div>
-                        {new Date(assinatura.ultimoPagamento).toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {assinatura.status === "active" && (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                      <p className="text-sm text-gray-700">
-                        Sua assinatura está ativa. Você tem acesso a todos os recursos do sistema.
-                      </p>
-                    </div>
-                  )}
-
-                  {assinatura.status === "pending" && (
-                    <div className="mt-6 p-4 bg-yellow-50 rounded-md">
-                      <p className="text-sm text-yellow-800">
-                        Sua assinatura está pendente de pagamento. Complete o pagamento para ter acesso completo ao
-                        sistema.
-                      </p>
-
-                      {assinatura.ultimoPagamento && (
-                        <div className="mt-2">
-                          <p className="text-sm text-yellow-800">
-                            <strong>Nota:</strong> Detectamos um pagamento recente. Se você já completou o pagamento,
-                            clique no botão "Forçar Atualização" abaixo para atualizar o status da sua assinatura.
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleForcarAtualizacao}
-                            disabled={atualizando}
-                            className="mt-2 bg-transparent"
-                          >
-                            {atualizando ? "Atualizando..." : "Forçar Atualização"}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {assinatura.status === "canceled" && (
-                    <div className="mt-6 p-4 bg-red-50 rounded-md">
-                      <p className="text-sm text-red-800">
-                        Sua assinatura foi cancelada. Renove sua assinatura para ter acesso completo ao sistema.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-            {assinatura && (
-              <CardFooter className="flex gap-4 flex-wrap">
-                {assinatura.status === "active" && assinatura.plano !== "gratuito" && (
-                  <>
-                    <Button variant="outline" onClick={handleMudarPlano}>
-                      <Calendar className="mr-2 h-4 w-4" />
-                      Mudar de Plano
-                    </Button>
-                    <Button variant="destructive" onClick={handleCancelarAssinatura} disabled={cancelando}>
-                      {cancelando ? "Cancelando..." : "Cancelar Assinatura"}
-                    </Button>
-                  </>
-                )}
-
-                {(assinatura.status === "pending" || assinatura.status === "canceled") && (
-                  <Button onClick={handleRenovarAssinatura}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    {assinatura.status === "pending" ? "Completar Pagamento" : "Renovar Assinatura"}
-                  </Button>
-                )}
-
-                {assinatura.ultimoPagamento && assinatura.status !== "active" && (
-                  <Button variant="secondary" onClick={handleForcarAtualizacao} disabled={atualizando}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    {atualizando ? "Atualizando..." : "Forçar Atualização de Status"}
-                  </Button>
-                )}
-              </CardFooter>
-            )}
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="planos">
-          <Card>
-            <CardHeader>
-              <CardTitle>Planos disponíveis</CardTitle>
-              <CardDescription>Escolha o plano que melhor se adapta ao seu negócio</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="border rounded-lg p-6">
-                  <h3 className="text-lg font-semibold">Plano Mensal</h3>
-                  <div className="mt-2 text-2xl font-bold">
-                    R$ 199,00<span className="text-sm font-normal text-muted-foreground">/mês</span>
-                  </div>
-                  <ul className="mt-4 space-y-2 text-sm">
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Acesso a todas as funcionalidades</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Número ilimitado de clientes</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Suporte prioritário</span>
-                    </li>
-                  </ul>
-                  {assinatura?.plano !== "mensal" && assinatura?.status === "active" && (
-                    <Button className="w-full mt-4" onClick={handleMudarPlano}>
-                      Mudar para este plano
-                    </Button>
-                  )}
-                </div>
-
-                <div className="border rounded-lg p-6 bg-gradient-to-br from-purple-50 to-pink-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold">Plano Anual</h3>
-                      <div className="mt-2 text-2xl font-bold">
-                        R$ 119,99<span className="text-sm font-normal text-muted-foreground">/mês</span>
-                      </div>
-                    </div>
-                    <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                      Economize 40%
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-1">Total: R$1.439,88/ano</div>
-                  <ul className="mt-4 space-y-2 text-sm">
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Acesso a todas as funcionalidades</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Número ilimitado de clientes</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Suporte prioritário</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Preço fixo garantido por 12 meses</span>
-                    </li>
-                  </ul>
-                  {assinatura?.plano !== "anual" && assinatura?.status === "active" && (
-                    <Button className="w-full mt-4" onClick={handleMudarPlano}>
-                      Mudar para este plano
-                    </Button>
-                  )}
-                </div>
+                {getStatusBadge(assinaturaInfo.status, assinaturaInfo.plan)}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="historico">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Pagamentos</CardTitle>
-              <CardDescription>Registro de todas as transações da sua conta</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {assinatura?.plano === "gratuito" ? (
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertDescription className="text-blue-800">
-                    Você está utilizando o plano gratuito promocional. Não há cobranças associadas à sua conta.
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Último Pagamento</p>
+                  <p className="font-medium">{formatDate(assinaturaInfo.ultimoPagamento)}</p>
+                </div>
+                {assinaturaInfo.dataProximaCobranca && (
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {assinaturaInfo.plan === "trial" ? "Expira em" : "Próxima Cobrança"}
+                    </p>
+                    <p className="font-medium">{formatDate(assinaturaInfo.dataProximaCobranca)}</p>
+                  </div>
+                )}
+              </div>
+
+              {assinaturaInfo.expired && (
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    Seu período de teste expirou. Escolha um plano para continuar usando o sistema.
                   </AlertDescription>
                 </Alert>
-              ) : assinatura?.ultimoPagamento ? (
-                <div className="border rounded-md divide-y">
-                  <div className="p-4 flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">Assinatura {assinatura.plano}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(assinatura.ultimoPagamento).toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </div>
-                    </div>
-                    <div className="font-medium">{assinatura.plano === "mensal" ? "R$199,00" : "R$1.439,88"}</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center p-6 text-muted-foreground">Nenhum histórico de pagamento disponível.</div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+
+              {assinaturaInfo.status === "active" && assinaturaInfo.plan === "trial" && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    Você está no período de teste. Aproveite para conhecer todas as funcionalidades!
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {assinaturaInfo.status === "active" && assinaturaInfo.plan === "gratuito" && (
+                <Alert className="bg-green-50 border-green-200">
+                  <Star className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    Parabéns! Você tem acesso gratuito permanente ao sistema.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhuma assinatura ativa</h3>
+              <p className="text-gray-600 mb-4">Você precisa de uma assinatura para usar o sistema.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Planos Disponíveis */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Plano Mensal */}
+        <Card className="relative">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-purple-600" />
+              Plano Mensal
+            </CardTitle>
+            <CardDescription>Flexibilidade para crescer</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="text-3xl font-bold">R$ 398,00</div>
+                <div className="text-sm text-gray-600">Primeiro pagamento</div>
+                <div className="text-sm text-gray-600">Taxa de adesão + 1ª mensalidade</div>
+                <div className="text-sm text-gray-600 mt-1">Próximas: R$ 199,00/mês</div>
+              </div>
+
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Acesso a todas as funcionalidades
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Número ilimitado de clientes
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Suporte prioritário
+                </li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Plano Anual */}
+        <Card className="relative border-yellow-200 bg-yellow-50">
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+            <Badge className="bg-yellow-500 text-white">45% OFF</Badge>
+          </div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-yellow-600" />
+              Plano Anual
+            </CardTitle>
+            <CardDescription>Melhor custo-benefício</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <div className="text-3xl font-bold">R$ 1.318,80</div>
+                <div className="text-sm text-gray-600">Pagamento anual</div>
+                <div className="text-sm text-gray-600">R$ 109,90/mês</div>
+                <div className="text-sm text-green-600 font-medium">Sem taxa de adesão</div>
+              </div>
+
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Acesso a todas as funcionalidades
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Número ilimitado de clientes
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Suporte prioritário
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Preço fixo garantido por 12 meses
+                </li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ações */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {assinaturaInfo?.hasSubscription ? (
+              <>
+                {assinaturaInfo.expired ? (
+                  <Button onClick={handleSubscribe} size="lg" className="flex-1 max-w-xs">
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Reativar Assinatura
+                  </Button>
+                ) : assinaturaInfo.plan === "trial" ? (
+                  <Button onClick={handleSubscribe} size="lg" className="flex-1 max-w-xs">
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Assinar Plano
+                  </Button>
+                ) : assinaturaInfo.plan !== "gratuito" ? (
+                  <Button
+                    onClick={handleChangeplan}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 max-w-xs bg-transparent"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Alterar Plano
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <Button onClick={handleSubscribe} size="lg" className="flex-1 max-w-xs">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Escolher Plano
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
+
 
 
 
