@@ -41,22 +41,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     nome: "",
     logoUrl: "",
   })
-
-  useEffect(() => {
-    console.log("AdminLayout - session:", session)
-    console.log("AdminLayout - status:", status)
-  }, [session, status])
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
+  const [redirectCountdown, setRedirectCountdown] = useState(5)
 
   // Verificar o status da assinatura da barbearia
   useEffect(() => {
@@ -75,7 +60,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             if (data.redirectToCheckout) {
               setTimeout(() => {
                 router.push(`/checkout?barbeariaId=${session.user.barbeariaId}&expired=true`)
-              }, 3000)
+              }, 5000) // Alterado de 3000 para 5000
             }
           } else {
             console.error("Erro ao verificar status da assinatura")
@@ -125,6 +110,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     fetchBarbeariaInfo()
   }, [session, status])
 
+  useEffect(() => {
+    console.log("AdminLayout - session:", session)
+    console.log("AdminLayout - status:", status)
+  }, [session, status])
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  useEffect(() => {
+    if (subscriptionStatus?.status === "expired" && redirectCountdown > 0) {
+      const timer = setTimeout(() => {
+        setRedirectCountdown((prev) => prev - 1)
+      }, 1000)
+
+      return () => clearTimeout(timer)
+    } else if (subscriptionStatus?.status === "expired" && redirectCountdown === 0) {
+      router.push(`/checkout?barbeariaId=${session?.user?.barbeariaId}&expired=true`)
+    }
+  }, [subscriptionStatus, redirectCountdown, router, session])
+
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: BarChart3 },
     { href: "/admin/premios", label: "Prêmios", icon: Gift },
@@ -162,31 +175,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <Button asChild>
             <Link href="/login">Fazer Login</Link>
           </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Mostrar tela de trial expirado
-  if (subscriptionStatus?.status === "expired") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
-          <div className="flex justify-center mb-4 text-red-500">
-            <AlertTriangle size={48} />
-          </div>
-          <h1 className="text-center text-red-600 text-xl font-bold mb-2">Período de Teste Expirado</h1>
-          <p className="text-center text-gray-600 mb-4">
-            Seu período de teste de 7 dias terminou. Escolha um plano para continuar usando o sistema.
-          </p>
-          <Alert className="bg-red-50 border-red-200 mb-4">
-            <AlertTriangle className="h-4 w-4 text-red-800" />
-            <AlertDescription className="text-red-800">{subscriptionStatus.message}</AlertDescription>
-          </Alert>
-          <div className="text-center mb-4">
-            <p className="text-sm text-gray-600 mb-2">Redirecionando para o checkout em alguns segundos...</p>
-            <div className="animate-pulse text-blue-600">⏳ Aguarde...</div>
-          </div>
         </div>
       </div>
     )
@@ -395,6 +383,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     </div>
   )
 }
+
 
 
 
