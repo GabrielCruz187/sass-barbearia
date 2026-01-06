@@ -132,9 +132,9 @@ export default function AssinaturaPage() {
       case "trial":
         return "Gratuito por 7 dias"
       case "mensal":
-        return "R$ 199,00/mês"
+        return "R$ 99,90/mês"
       case "anual":
-        return "R$ 109,90/mês"
+        return "R$ 49,99/mês"
       default:
         return "-"
     }
@@ -240,7 +240,10 @@ export default function AssinaturaPage() {
       {/* Planos Disponíveis */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Plano Mensal */}
-        <Card className="relative">
+        <Card className="relative border-2 border-green-500 bg-green-50">
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+            <Badge className="bg-green-600 text-white text-sm px-3 py-1">🎉 DESCONTO ESPECIAL</Badge>
+          </div>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Zap className="w-5 h-5 text-purple-600" />
@@ -251,10 +254,10 @@ export default function AssinaturaPage() {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <div className="text-3xl font-bold">R$ 398,00</div>
-                <div className="text-sm text-gray-600">Primeiro pagamento</div>
-                <div className="text-sm text-gray-600">Taxa de adesão + 1ª mensalidade</div>
-                <div className="text-sm text-gray-600 mt-1">Próximas: R$ 199,00/mês</div>
+                <div className="text-lg text-gray-400 line-through">De R$ 199,00/mês</div>
+                <div className="text-4xl font-bold text-green-600">R$ 99,90</div>
+                <div className="text-sm text-gray-600">Por mês</div>
+                <div className="text-sm font-semibold text-green-600 mt-1">Economize 50%</div>
               </div>
 
               <ul className="space-y-2 text-sm">
@@ -276,9 +279,9 @@ export default function AssinaturaPage() {
         </Card>
 
         {/* Plano Anual */}
-        <Card className="relative border-yellow-200 bg-yellow-50">
+        <Card className="relative border-2 border-yellow-500 bg-yellow-50">
           <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-            <Badge className="bg-yellow-500 text-white">45% OFF</Badge>
+            <Badge className="bg-yellow-600 text-white text-sm px-3 py-1">🎉 SUPER DESCONTO!</Badge>
           </div>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -290,10 +293,11 @@ export default function AssinaturaPage() {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <div className="text-3xl font-bold">R$ 1.318,80</div>
+                <div className="text-lg text-gray-400 line-through">De R$ 1.318,80/ano</div>
+                <div className="text-4xl font-bold text-yellow-600">R$ 599,90</div>
                 <div className="text-sm text-gray-600">Pagamento anual</div>
-                <div className="text-sm text-gray-600">R$ 109,90/mês</div>
-                <div className="text-sm text-green-600 font-medium">Sem taxa de adesão</div>
+                <div className="text-sm text-gray-600 mt-1">R$ 49,99/mês</div>
+                <div className="text-sm font-semibold text-yellow-600">Economize 55%</div>
               </div>
 
               <ul className="space-y-2 text-sm">

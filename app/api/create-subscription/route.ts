@@ -57,10 +57,10 @@ export async function POST(request: Request) {
     let priceId: string
 
     if (plan === "annual") {
-      amount = 131880 // R$ 1.318,80 em centavos
+      amount = 59990 // R$ 599,90 em centavos
       priceId = process.env.STRIPE_ANNUAL_PRICE_ID!
     } else {
-      amount = 39800 // R$ 398,00 em centavos (taxa de adesão + primeira mensalidade)
+      amount = 9990 // R$ 99,90 em centavos (primeira mensalidade)
       priceId = process.env.STRIPE_MONTHLY_PRICE_ID!
     }
 
@@ -86,6 +86,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
+
 
 
 
